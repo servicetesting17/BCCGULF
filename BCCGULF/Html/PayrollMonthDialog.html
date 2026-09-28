@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Process Payroll</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background: #f5f6fa;
+            color: #323130;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 28px 32px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.10);
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 2px solid #0078d4;
+        }
+
+        .card-icon {
+            width: 32px;
+            height: 32px;
+            background: #0078d4;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-icon svg {
+            fill: #fff;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0078d4;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #201f1e;
+            margin-bottom: 6px;
+        }
+
+        select {
+            width: 100%;
+            padding: 9px 12px;
+            font-size: 14px;
+            font-family: "Segoe UI", sans-serif;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            color: #323130;
+            transition: border-color 0.2s;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #0078d4;
+            box-shadow: 0 0 3px rgba(0, 120, 212, 0.35);
+        }
+
+        .range-preview {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #605e5c;
+            min-height: 16px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+
+        button {
+            padding: 8px 22px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: "Segoe UI", sans-serif;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.18s, transform 0.1s;
+        }
+
+        .btn-primary {
+            background: #0078d4;
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #005fa3;
+        }
+
+        .btn-primary:disabled {
+            background: #a8c6e8;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f3f2f1;
+            color: #323130;
+            border: 1px solid #d2d0ce;
+        }
+
+        .btn-secondary:hover {
+            background: #e1dfdd;
+        }
+
+        /* ── Confirmation overlay ── */
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .confirm-overlay.active {
+            display: flex;
+        }
+
+        .confirm-box {
+            background: #fff;
+            border-radius: 8px;
+            padding: 24px 28px;
+            width: 90%;
+            max-width: 360px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        .confirm-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #201f1e;
+            margin-bottom: 10px;
+        }
+
+        .confirm-body {
+            font-size: 13px;
+            color: #323130;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .confirm-body strong {
+            color: #0078d4;
+        }
+
+        /* ── Spinner ── */
+        .spinner-wrap {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 0 4px;
+            font-size: 13px;
+            color: #605e5c;
+        }
+
+        .spinner-wrap.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #d2d0ce;
+            border-top-color: #0078d4;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status-msg {
+            font-size: 13px;
+            margin-top: 12px;
+            min-height: 18px;
+        }
+
+        .status-msg.error {
+            color: #d13438;
+        }
+
+        .status-msg.success {
+            color: #107c10;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
+                    <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 14.5h-2v-6h2v6zm0-8h-2V6h2v2.5z" />
+                </svg>
+            </div>
+            <span class="card-title">Process Payroll</span>
+        </div>
+
+        <div class="form-group">
+            <label for="monthSelect">Select Payroll Month</label>
+            <select id="monthSelect" onchange="onMonthChange()">
+                <option value="">-- Select Month --</option>
+            </select>
+            <div class="range-preview" id="rangePreview"></div>
+        </div>
+
+        <div class="spinner-wrap" id="spinner">
+            <div class="spinner"></div>
+            <span>Processing payroll, please wait…</span>
+        </div>
+
+        <div class="status-msg" id="statusMsg"></div>
+
+        <div class="btn-group">
+            <button class="btn-secondary" onclick="closeDialog()">Cancel</button>
+            <button class="btn-primary" id="submitBtn" onclick="onSubmit()" disabled>Process</button>
+        </div>
+    </div>
+
+    <!-- Confirmation overlay -->
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-box">
+            <div class="confirm-title">Confirm Payroll Processing</div>
+            <div class="confirm-body" id="confirmBody"></div>
+            <div class="btn-group">
+                <button class="btn-secondary" onclick="closeConfirm()">Cancel</button>
+                <button class="btn-primary" onclick="runPayroll()">Yes, Process</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── CONFIG — Power Automate URLs per CRM environment ────────────────────────
+        var PA_URL_PROD = "https://af80cd5c7f67e5809e0217bad953e5.46.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/c233bdbc96a448a8a3ce30d2c58f4aef/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Pj1Oz2ihYRbiMNxFNRhrj0-Ymm2e-KEQfgXCbPtxzQ0";
+        var PA_URL_DEV  = "https://91c76fb3aaa2e8fbb0d0a1577a6831.4e.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/194cfd25bbee4c3aaa9360a00942c1b5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=6OqHaJxwqKTyUK5dFWCX-oXaZTa9UGE4ecnfqg7aGjs";
+
+        function getPowerAutomateUrl() {
+            try {
+                debugger;
+                var clientUrl = parent.Xrm.Utility.getGlobalContext().getClientUrl();
+                if (clientUrl.includes("bccdev"))  return PA_URL_DEV;
+                if (clientUrl.includes("bccgulf")) return PA_URL_PROD;
+                return PA_URL_DEV;
+            } catch (e) {
+                return e;
+            }
+        }
+        // ────────────────────────────────────────────────────────────────────────────
+
+        var selectedFromDate = "";
+        var selectedToDate = "";
+        var selectedLabel = "";
+
+        // Entity logical name passed in from the ribbon via the `data` query-string parameter
+        var passedEntityName = "";
+
+        function readDataParam() {
+            try {
+                var query  = decodeURIComponent(window.location.search.substring(1));
+                var params = {};
+                query.split("&").forEach(function (part) {
+                    var kv = part.split("=");
+                    if (kv.length >= 2) params[kv[0]] = kv.slice(1).join("=");
+                });
+                if (params.data) {
+                    passedEntityName = decodeURIComponent(params.data);
+                }
+            } catch (e) {
+                console.warn("PayrollMonthDialog: could not parse data param", e);
+            }
+        }
+
+        // Payroll cycle changed from May 2026:
+        //   May 2026  → 01 May to 25 May  (one-time transition)
+        //   June 2026+ → 26th of previous month to 25th of selected month
+        var CYCLE_CHANGE_YEAR  = 2026;
+        var CYCLE_CHANGE_MONTH = 4; // May (0-based)
+
+        var MONTHS = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+
+        window.onload = function () {
+            readDataParam();
+            console.log("PayrollMonthDialog — entityName:", passedEntityName);
+            populateMonths();
+        };
+
+        function populateMonths() {
+            var sel = document.getElementById("monthSelect");
+            var now = new Date();
+            var year = now.getFullYear();
+
+            MONTHS.forEach(function (name, idx) {
+                var opt = document.createElement("option");
+                opt.value = idx; // 0-based month index
+                opt.text = name + " " + year;
+                sel.appendChild(opt);
+            });
+        }
+
+        function getMonthRange(monthIndex) {
+            var now = new Date();
+            var year = now.getFullYear();
+
+            // Bookable Resource always uses 1st → last day of month
+            if (passedEntityName === "bookableresource") {
+                return {
+                    from: formatDate(new Date(year, monthIndex, 1)),
+                    to:   formatDate(new Date(year, monthIndex + 1, 0))
+                };
+            }
+
+            // Before the cycle change: 1st to last day of the month (original logic)
+            if (year < CYCLE_CHANGE_YEAR ||
+                (year === CYCLE_CHANGE_YEAR && monthIndex < CYCLE_CHANGE_MONTH)) {
+                return {
+                    from: formatDate(new Date(year, monthIndex, 1)),
+                    to:   formatDate(new Date(year, monthIndex + 1, 0))
+                };
+            }
+
+            // May 2026 — one-time transition: 1st May to 25th May
+            if (year === CYCLE_CHANGE_YEAR && monthIndex === CYCLE_CHANGE_MONTH) {
+                return {
+                    from: formatDate(new Date(year, monthIndex, 1)),
+                    to:   formatDate(new Date(year, monthIndex, 25))
+                };
+            }
+
+            // June 2026 onwards: 26th of previous month → 25th of selected month
+            var prevMonth = monthIndex - 1;
+            var prevYear  = year;
+            if (prevMonth < 0) { prevMonth = 11; prevYear = year - 1; }
+
+            return {
+                from: formatDate(new Date(prevYear, prevMonth, 26)),
+                to:   formatDate(new Date(year, monthIndex, 25))
+            };
+        }
+
+        function formatDate(d) {
+            var y = d.getFullYear();
+            var m = String(d.getMonth() + 1).padStart(2, "0");
+            var dd = String(d.getDate()).padStart(2, "0");
+            return y + "-" + m + "-" + dd;
+        }
+
+        function onMonthChange() {
+            var sel = document.getElementById("monthSelect");
+            var idx = sel.value;
+            var btn = document.getElementById("submitBtn");
+            var prev = document.getElementById("rangePreview");
+
+            if (idx === "") {
+                prev.textContent = "";
+                btn.disabled = true;
+                selectedFromDate = "";
+                selectedToDate = "";
+                selectedLabel = "";
+                return;
+            }
+
+            var range = getMonthRange(parseInt(idx, 10));
+            selectedFromDate = range.from;
+            selectedToDate = range.to;
+            selectedLabel = sel.options[sel.selectedIndex].text;
+
+            prev.textContent = "Period: " + range.from + " → " + range.to;
+            btn.disabled = false;
+        }
+
+        function onSubmit() {
+            if (!selectedFromDate) return;
+
+            document.getElementById("confirmBody").innerHTML =
+                "You are about to process payroll for:<br/><br/>" +
+                "<strong>" + selectedLabel + "</strong><br/>" +
+                "Period: " + selectedFromDate + " to " + selectedToDate + "<br/><br/>" +
+                "This action cannot be undone. Do you want to continue?";
+
+            document.getElementById("confirmOverlay").classList.add("active");
+        }
+
+        function closeConfirm() {
+            document.getElementById("confirmOverlay").classList.remove("active");
+        }
+
+        async function runPayroll() {
+            closeConfirm();
+
+            setStatus("", "");
+            document.getElementById("spinner").classList.add("active");
+            document.getElementById("submitBtn").disabled = true;
+
+            try {
+                var typeValue = passedEntityName === "bookableresource" ? 100000001
+                             : passedEntityName === "msdyn_timeentry"  ? 100000000
+                             : null;
+
+                var payload = {
+                    fromDate:   selectedFromDate,
+                    toDate:     selectedToDate,
+                    month:      selectedLabel,                  
+                    type:       typeValue
+                };
+
+                var response = await fetch(getPowerAutomateUrl(), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                document.getElementById("spinner").classList.remove("active");
+
+                if (response.ok) {
+                    setStatus("Payroll processed successfully for " + selectedLabel + ".", "success");
+                    setTimeout(closeDialog, 1800);
+                } else {
+                    var errText = await response.text();
+                    setStatus("Power Automate returned an error: " + response.status + " — " + errText, "error");
+                    document.getElementById("submitBtn").disabled = false;
+                }
+
+            } catch (err) {
+                document.getElementById("spinner").classList.remove("active");
+                setStatus("Failed to call Power Automate: " + err.message, "error");
+                document.getElementById("submitBtn").disabled = false;
+            }
+        }
+
+        function setStatus(msg, type) {
+            var el = document.getElementById("statusMsg");
+            el.textContent = msg;
+            el.className = "status-msg" + (type ? " " + type : "");
+        }
+
+        function closeDialog() {
+            try {
+                if (parent && parent.Xrm && parent.Xrm.Navigation && parent.Xrm.Navigation.close) {
+                    parent.Xrm.Navigation.close();
+                } else {
+                    window.close();
+                }
+            } catch (e) {
+                window.close();
+            }
+        }
+    </script>
+</body>
+
+</html>

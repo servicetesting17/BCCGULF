@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Attendance Comment</title>
+    <meta charset="utf-8" />
+
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background-color: #f5f6fa;
+            color: #323130;
+            margin: 0;
+            padding: 0;
+        }
+
+        .popup-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 24px 28px;
+            max-width: 480px;
+            margin: 10px auto;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .dialog-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #201f1e;
+            margin-bottom: 6px;
+        }
+
+        .dialog-subtitle {
+            font-size: 13px;
+            color: #605e5c;
+            margin-bottom: 18px;
+        }
+
+        .form-row {
+            margin-bottom: 10px;
+        }
+
+        .form-row label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #201f1e;
+            margin-bottom: 5px;
+        }
+
+        .form-row label .required-star {
+            color: #d13438;
+            margin-left: 2px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-family: "Segoe UI", sans-serif;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+            min-height: 90px;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #0078d4;
+            box-shadow: 0 0 3px rgba(0, 120, 212, 0.4);
+        }
+
+        textarea.error-border {
+            border-color: #d13438;
+        }
+
+        .error-message {
+            color: #d13438;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .error-message.visible {
+            display: block;
+        }
+
+        .api-error-box {
+            background-color: #fef0f0;
+            border: 1px solid #f1cbcb;
+            border-radius: 4px;
+            padding: 10px 12px;
+            font-size: 13px;
+            color: #a80000;
+            margin-top: 14px;
+            display: none;
+        }
+
+        .api-error-box.visible {
+            display: block;
+        }
+
+        .button-group {
+            text-align: right;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 8px 20px;
+            font-size: 13px;
+            font-weight: 500;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .submit-btn {
+            background-color: #0078d4;
+            color: white;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            background-color: #005fa3;
+        }
+
+        .submit-btn:disabled {
+            background-color: #a0c8ec;
+            cursor: not-allowed;
+        }
+
+        .close-btn {
+            background-color: #666;
+            color: white;
+            margin-left: 8px;
+        }
+
+        .close-btn:hover {
+            background-color: #444;
+        }
+    </style>
+
+    <script>
+        var dialogAction = "";
+        var selectedRecords = "";
+        var userId = "";
+        var isSubmitting = false;
+
+        window.onload = function () {
+            try {
+                if (parent && parent.Xrm && parent.Xrm.Utility && parent.Xrm.Utility.getPageContext) {
+                    var pageCtx = parent.Xrm.Utility.getPageContext();
+                    var rawData = pageCtx && pageCtx.input && pageCtx.input.webresourceData
+                        ? pageCtx.input.webresourceData.webresourceData
+                        : null;
+
+                    if (rawData) {
+                        var data = JSON.parse(rawData);
+                        dialogAction = data.action || "";
+                        selectedRecords = data.selectedRecords || "";
+                        userId = data.userId || "";
+                    }
+                }
+            } catch (e) {
+                console.error("Error reading dialog data:", e.message);
+            }
+
+            // Fallback: read from URL query params
+            if (!dialogAction) {
+                try {
+                    var params = new URLSearchParams(window.location.search);
+                    var urlData = params.get("data");
+                    if (urlData) {
+                        var parsed = JSON.parse(decodeURIComponent(urlData));
+                        dialogAction = parsed.action || "";
+                        selectedRecords = parsed.selectedRecords || "";
+                        userId = parsed.userId || "";
+                    }
+                } catch (e) {
+                    console.error("Error reading URL data:", e.message);
+                }
+            }
+
+            renderDialog();
+        };
+
+        function renderDialog() {
+            var titleEl = document.getElementById("dialogTitle");
+            var subtitleEl = document.getElementById("dialogSubtitle");
+            var labelEl = document.getElementById("commentLabel");
+            var submitBtn = document.getElementById("submitBtn");
+
+            if (dialogAction === "sendForApproval") {
+                titleEl.textContent = "Send for Approval";
+                subtitleEl.textContent = "Please add a comment before submitting for approval.";
+                labelEl.innerHTML = 'Comment <span class="required-star">*</span>';
+                submitBtn.textContent = "Send for Approval";
+            } else if (dialogAction === "reject") {
+                titleEl.textContent = "Reject Attendance";
+                subtitleEl.textContent = "Please provide a reason for rejecting this attendance record.";
+                labelEl.innerHTML = 'Rejection Reason <span class="required-star">*</span>';
+                submitBtn.textContent = "Reject";
+                submitBtn.style.backgroundColor = "#d13438";
+            } else {
+                titleEl.textContent = "Comment";
+                subtitleEl.textContent = "Please add a comment.";
+                labelEl.innerHTML = 'Comment <span class="required-star">*</span>';
+            }
+        }
+
+        function submitComment() {
+            if (isSubmitting) return;
+
+            var commentBox = document.getElementById("commentBox");
+            var errorMsg = document.getElementById("commentError");
+            var apiError = document.getElementById("apiError");
+            var submitBtn = document.getElementById("submitBtn");
+
+            // Clear previous errors
+            errorMsg.classList.remove("visible");
+            apiError.classList.remove("visible");
+            commentBox.classList.remove("error-border");
+
+            var comment = commentBox.value.trim();
+
+            if (!comment) {
+                errorMsg.textContent = dialogAction === "reject"
+                    ? "Rejection reason is required."
+                    : "Comment is required.";
+                errorMsg.classList.add("visible");
+                commentBox.classList.add("error-border");
+                commentBox.focus();
+                return;
+            }
+
+            if (!selectedRecords) {
+                apiError.textContent = "No records selected. Please close and try again.";
+                apiError.classList.add("visible");
+                return;
+            }
+
+            isSubmitting = true;
+            submitBtn.disabled = true;
+
+            var progressMsg = dialogAction === "sendForApproval"
+                ? "Sending for approval..."
+                : "Rejecting...";
+
+            parent.Xrm.Utility.showProgressIndicator(progressMsg);
+
+            var request = {
+                action: dialogAction,
+                selectedRecords: selectedRecords,
+                comment: comment,
+                userId: {
+                    "@odata.type": "Microsoft.Dynamics.CRM.systemuser",
+                    systemuserid: userId
+                },
+                getMetadata: function () {
+                    return {
+                        boundParameter: null,
+                        parameterTypes: {
+                            action:          { typeName: "Edm.String",       structuralProperty: 1 },
+                            selectedRecords: { typeName: "Edm.String",       structuralProperty: 1 },
+                            comment:         { typeName: "Edm.String",       structuralProperty: 1 },
+                            userId:          { typeName: "mscrm.systemuser", structuralProperty: 5 }
+                        },
+                        operationType: 0,
+                        operationName: "bcc_AttendanceAction"
+                    };
+                }
+            };
+
+            parent.Xrm.WebApi.execute(request).then(
+                function (response) {
+                    if (response.ok) { return response.json(); }
+                }
+            ).then(
+                function (responseBody) {
+                    parent.Xrm.Utility.closeProgressIndicator();
+                    var result = responseBody && responseBody["result"];
+                    if (result && result.toLowerCase().indexOf("error") !== -1) {
+                        isSubmitting = false;
+                        submitBtn.disabled = false;
+                        apiError.textContent = result;
+                        apiError.classList.add("visible");
+                    } else {
+                        closePopup();
+                    }
+                }
+            ).catch(
+                function (error) {
+                    parent.Xrm.Utility.closeProgressIndicator();
+                    isSubmitting = false;
+                    submitBtn.disabled = false;
+                    console.error("Error in submitComment: " + error.message);
+                    apiError.textContent = "Error: " + error.message;
+                    apiError.classList.add("visible");
+                }
+            );
+        }
+
+        function closePopup() {
+            try {
+                if (typeof parent.Xrm !== "undefined" && parent.Xrm && parent.Xrm.Navigation && parent.Xrm.Navigation.close) {
+                    parent.Xrm.Navigation.close();
+                } else {
+                    window.close();
+                }
+            } catch (e) {
+                console.error("Error closing popup:", e);
+                window.close();
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <div class="popup-container">
+
+        <div class="dialog-title" id="dialogTitle">Comment</div>
+        <div class="dialog-subtitle" id="dialogSubtitle"></div>
+
+        <div class="form-row">
+            <label id="commentLabel">Comment <span class="required-star">*</span></label>
+            <textarea id="commentBox" placeholder="Enter your comment here..." maxlength="2000"></textarea>
+            <div class="error-message" id="commentError"></div>
+        </div>
+
+        <div class="api-error-box" id="apiError"></div>
+
+        <div class="button-group">
+            <button class="submit-btn" id="submitBtn" onclick="submitComment()">Submit</button>
+            <button class="close-btn" onclick="closePopup()">Cancel</button>
+        </div>
+
+    </div>
+</body>
+</html>

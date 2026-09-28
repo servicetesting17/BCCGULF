@@ -1,0 +1,1329 @@
+<html>
+<head>
+    <title>BCC Gulf Time Entry</title>
+    <meta charset="utf-8" />
+
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background-color: #f5f6fa;
+            color: #323130;
+            margin: 0;
+            padding: 0;
+        }
+
+        .popup-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 25px 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            max-width: 550px;
+            margin: 5px auto;
+        }
+
+        img {
+            display: block;
+            margin: 0 auto 20px auto;
+            width: 150px;
+        }
+
+        .form-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+            .form-row label {
+                flex: 0 0 35%;
+                font-weight: 600;
+                color: #201f1e;
+            }
+
+            .form-row input,
+            .form-row select {
+                flex: 0 0 63%;
+                padding: 8px 10px;
+                font-size: 14px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #0078d4;
+            box-shadow: 0 0 3px rgba(0, 120, 212, 0.4);
+        }
+
+        input[readonly],
+        select[disabled] {
+            background-color: #f3f2f1;
+            color: #605e5c;
+        }
+
+        .button-group {
+            text-align: center;
+            margin-top: 25px;
+        }
+
+        button {
+            padding: 8px 18px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .submit-btn {
+            background-color: #0078d4;
+            color: white;
+        }
+
+            .submit-btn:hover {
+                background-color: #005fa3;
+                transform: scale(1.05);
+            }
+
+        .close-btn {
+            background-color: #666;
+            color: white;
+            margin-left: 10px;
+        }
+
+            .close-btn:hover {
+                background-color: #444;
+                transform: scale(1.05);
+            }
+            
+        .error-message {
+            color: #d13438;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        /* ── Missing Entries Modal ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-box {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 24px 28px;
+            width: 92%;
+            max-width: 620px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .modal-header-icon {
+            font-size: 22px;
+        }
+        .modal-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #d13438;
+        }
+        .modal-subtitle {
+            font-size: 13px;
+            color: #605e5c;
+            margin-bottom: 16px;
+        }
+        .modal-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .modal-table th {
+            background-color: #1F4E79;
+            color: #ffffff;
+            padding: 8px 10px;
+            text-align: left;
+        }
+        .modal-table td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #edebe9;
+        }
+        .modal-table tr:nth-child(even) td { background-color: #f3f9ff; }
+        .modal-footer {
+            text-align: right;
+            margin-top: 18px;
+        }
+    </style>
+
+<script>
+let selectedGuids = "";
+let clicksubmit = false;
+let approverId = "";
+var isholiday = false;
+let holidayArr = [];
+
+/* --------------------------------------------------------
+   FIXED DATE RESTRICTIONS — ENABLE FROM 3RD DATE TO TODAY
+-------------------------------------------------------- */
+function setDateRestrictions() {
+
+            const dateInput = document.getElementById("date");
+
+            const today = new Date();
+
+            
+
+            // Calculate maximum allowed date (today)
+
+            const maxDate = new Date(today);
+
+            
+
+            // Calculate minimum allowed date (2 days before today)
+
+            const minDate = new Date(today);
+
+            //minDate.setDate(today.getDate() - 3);
+
+            
+
+            // Format dates to YYYY-MM-DD for input[type="date"]
+
+            const formatDate = (date) => {
+
+                return date.toISOString().split('T')[0];
+
+            };
+
+            
+
+            // Set min and max attributes
+
+            dateInput.min = formatDate(minDate);
+
+            dateInput.max = formatDate(maxDate);
+
+            
+
+            console.log("Date restrictions set:");
+
+            console.log("Minimum allowed date:", minDate.toDateString());
+
+            console.log("Maximum allowed date:", maxDate.toDateString());
+
+        }
+window.onload = function () {
+    try {
+        if (parent && parent.Xrm && parent.Xrm.Utility && parent.Xrm.Utility.getPageContext) {
+            const pageCtx = parent.Xrm.Utility.getPageContext();
+            if (pageCtx?.input?.webresourceData?.webresourceData) {
+                selectedGuids = pageCtx.input.webresourceData.webresourceData;
+            }
+        }
+    } catch (e) {
+        console.error("Error reading data:", e.message);
+    }
+
+    //setDateRestrictions();
+
+    let guid = selectedGuids.split(",");
+    loadProjectByResource(guid[0]);
+    loadTasksDropdown();
+    setDefaultValue();
+    checkHoliday();
+
+
+    if (document.getElementById("date").value) {
+        setDayNameFromDate();
+    }
+};
+
+async function checkHoliday() {
+    try {
+        const holidayResult = await parent.Xrm.WebApi.retrieveMultipleRecords(
+            "bcc_holidays",
+            "?$select=bcc_holidaydate,bcc_holidayenddate&$filter=(statecode eq 0)"
+        );
+
+        holidayArr = [];
+
+        holidayResult.entities.forEach(record => {
+            const startDate = new Date(record.bcc_holidaydate);
+            const endDate = new Date(record.bcc_holidayenddate);
+
+            for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+                holidayArr.push(d.toLocaleDateString('en-GB'));
+            }
+        });
+
+    } catch (error) {
+        console.error("Error retrieving holiday:", error.message);
+    }
+}
+
+async function loadTasksDropdown() {
+    try {
+        const results = await parent.Xrm.WebApi.retrieveMultipleRecords(
+            "msdyn_servicetasktype",
+            "?$select=msdyn_servicetasktypeid,msdyn_name&$filter=statecode eq 0&$orderby=msdyn_name asc"
+        );
+
+        const dropdown = document.getElementById("task");
+        dropdown.innerHTML = '<option value="">-- Select Task --</option>';
+
+        results.entities.forEach(task => {
+            const option = document.createElement("option");
+            option.value = task.msdyn_servicetasktypeid;
+            option.text = task.msdyn_name;
+            dropdown.appendChild(option);
+        });
+
+    } catch (error) {
+        console.error("Error retrieving tasks:", error.message);
+    }
+}
+
+function setDefaultValue() {
+    document.getElementById("entryType").value = "100000000";
+    document.getElementById("overtime1").value = 2;
+    document.getElementById("Duration").value = 8;
+    document.getElementById("totalHours").value = 10;
+
+    document.getElementById("overtime1").readOnly = false;
+    document.getElementById("Duration").readOnly = true;
+
+    // OT2 and OT3 locked until OT1 reaches 5
+    document.getElementById("overtime2").disabled = true;
+    document.getElementById("overtime3").disabled = true;
+    document.getElementById("overtime2").value = "";
+    document.getElementById("overtime3").value = "";
+}
+
+async function loadProjectByResource(resourceGuid) {
+    let projectId = "";
+    try {
+        // Clean the GUID properly
+        const cleanGuid = resourceGuid.replace(/[\{\}\[\]]/g, "").trim();
+        
+        console.log("Loading project for resource:", cleanGuid);
+        
+        const resource = await parent.Xrm.WebApi.retrieveRecord(
+            "bookableresource",
+            cleanGuid,
+            "?$select=_new_project_value&$expand=new_Project($select=bcc_name,bcc_projectid)"
+        );
+        
+        projectId = resource["_new_project_value"];
+        
+        console.log("Project ID found:", projectId);
+        
+        if (!projectId) {
+            console.warn("No project assigned to this resource");
+            alert("No project is assigned to this resource.");
+            return;
+        }
+
+        const projectName = resource["_new_project_value@OData.Community.Display.V1.FormattedValue"];
+        
+        const dropdown = document.getElementById("projectDropdown");
+        dropdown.innerHTML = "";
+        const option = document.createElement("option");
+        option.value = projectId;
+        option.textContent = projectName || "Unknown Project";
+        dropdown.appendChild(option);
+        dropdown.value = projectId;
+        dropdown.disabled = true;
+        
+        console.log("Project loaded successfully:", projectName);
+        
+        // Load project manager
+        const projectmanager = await parent.Xrm.WebApi.retrieveRecord(
+            "bcc_project",
+            projectId,
+            "?$select=_bcc_projectmanager_value"
+        );
+        approverId = projectmanager["_bcc_projectmanager_value"];
+        
+        console.log("Approver ID:", approverId);
+        
+    } catch (error) {
+        console.error("❌ Error loading project:", error);
+        console.error("Error details:", error.message);
+        alert("Failed to load project: " + error.message);
+    }
+}
+function isSystemAdministrator() {
+    try {
+        const roles = parent.Xrm.Utility.getGlobalContext().userSettings.roles;
+        let isAdmin = false;
+
+        roles.forEach(function (role) {
+            if (role.name === "System Administrator") {
+                isAdmin = true;
+            }
+        });
+
+        return isAdmin;
+    } catch (e) {
+        console.error("Role check failed:", e);
+        return false;
+    }
+}
+
+/* --------------------------------------------------------
+   DATE CHANGE
+-------------------------------------------------------- */
+async function onDateChange() {
+    const dateInput = document.getElementById("date");
+    if (!dateInput.value) return;
+
+    const selectedDate = new Date(dateInput.value);
+    const today = new Date();
+
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    const maxDate = new Date(today);
+    const minDate = new Date(today);
+    minDate.setDate(today.getDate() - 3);
+
+    if (selectedDate > maxDate) {
+        alert("You can't select future date!");
+        dateInput.value = "";
+        return;
+    }
+
+    if (!isSystemAdministrator() && selectedDate < minDate) {
+        alert("You can't select a date earlier than last 4 days!");
+        dateInput.value = "";
+        return;
+    }
+
+    // ── Previous-day time entry check ────────────────────────────────────────
+    const prevDate = new Date(selectedDate);
+    prevDate.setDate(selectedDate.getDate() - 1);
+
+    {
+        const prevDateStr = [
+            prevDate.getFullYear(),
+            String(prevDate.getMonth() + 1).padStart(2, "0"),
+            String(prevDate.getDate()).padStart(2, "0")
+        ].join("-");
+
+        const guids = selectedGuids
+            ? selectedGuids.split(",").map(g => g.replace(/[{}]/g, "").trim()).filter(Boolean)
+            : [];
+
+        if (guids.length > 0) {
+            try {
+                const checkRequest = {
+                    resourceIds: guids.join(","),
+                    checkDate: prevDateStr,
+                    getMetadata: function () {
+                        return {
+                            boundParameter: null,
+                            parameterTypes: {
+                                resourceIds: { typeName: "Edm.String", structuralProperty: 1 },
+                                checkDate:   { typeName: "Edm.String", structuralProperty: 1 }
+                            },
+                            operationType: 0,
+                            operationName: "bcc_CheckMissingTimeEntries"
+                        };
+                    }
+                };
+
+                const checkResponse = await parent.Xrm.WebApi.execute(checkRequest);
+                if (checkResponse.ok) {
+                    const body = await checkResponse.json();
+                    if (body["hasMissing"]) {
+                        const missing = JSON.parse(body["missingResourcesJson"] || "[]");
+                        showMissingEntriesDialog(missing, prevDateStr);
+                        dateInput.value = "";
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.error("Error checking previous day time entries:", err.message);
+            }
+        }
+    }
+    // ── End previous-day check ────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
+
+    setDayNameFromDate();
+
+    const formattedDate = selectedDate.toLocaleDateString('en-GB');
+    const isHoliday = holidayArr.includes(formattedDate);
+    const isSunday = selectedDate.getDay() === 0;
+
+    const overtime1 = document.getElementById("overtime1");
+    const overtime2 = document.getElementById("overtime2");
+    const overtime3 = document.getElementById("overtime3");
+    const durationField = document.getElementById("Duration");
+    const entryType = document.getElementById("entryType").value;
+
+    if (entryType === "100000000") {
+        if (isSunday || isHoliday) {
+            durationField.value = 8;
+            overtime3.disabled = false;
+            overtime2.value = "";
+            overtime2.disabled = true;
+
+            if (isSunday) {
+                overtime1.value = 0;
+                overtime1.disabled = true;
+            } else {
+                overtime1.value = "";
+                overtime1.disabled = true;
+            }
+        } else {
+            isholiday = false;
+            overtime1.value = 2;
+            overtime2.value = "";
+            overtime3.value = "";
+            durationField.value = 8;
+            document.getElementById("totalHours").value = 10;
+            overtime1.disabled = false;
+            overtime2.disabled = true;
+            overtime3.disabled = true;
+        }
+    }
+
+    calculateTotal();
+}
+
+function setDayNameFromDate() {
+    
+
+    const dateInput = document.getElementById("date");
+    const dayInput = document.getElementById("dayName");
+
+    if (!dateInput || !dayInput || !dateInput.value) {
+        dayInput.value = "";
+        return;
+    }
+
+    const parts = dateInput.value.split("-"); // always YYYY-MM-DD
+    const selectedDate = new Date(parts[0], parts[1] - 1, parts[2]);
+
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+    dayInput.value = days[selectedDate.getDay()];
+}
+
+
+function checkfileformat() {
+    const file = document.getElementById("fileUpload").files[0];
+    if (!file) return;
+
+    const allowedExtensions = /(\.jpg|\.jpeg|\.png|\.pdf|\.exe|\.xlsx)$/i;
+
+    if (!allowedExtensions.exec(file.name)) {
+        alert("Invalid file type! Only JPG, JPEG, PNG, EXE ,XLSX and PDF are allowed.");
+        document.getElementById("fileUpload").value = ""; // clear the input
+        return false;
+    }
+}
+
+function getLocalDateString() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+}
+
+function onEntryTypeChange() {
+    const entryType = document.getElementById("entryType").value;
+    const isAbsent  = entryType === "100000001";
+
+    const durationField   = document.getElementById("Duration");
+    const overtime1Field  = document.getElementById("overtime1");
+    const overtime2Field  = document.getElementById("overtime2");
+    const overtime3Field  = document.getElementById("overtime3");
+    const totalHoursField = document.getElementById("totalHours");
+    const taskField       = document.getElementById("task");
+
+    // Show / hide absent-only rows
+    document.getElementById("toDateRow").style.display       = isAbsent ? "flex" : "none";
+    document.getElementById("absentReasonRow").style.display = isAbsent ? "flex" : "none";
+
+    // Show / hide present-only rows
+    document.getElementById("dayRow").style.display       = isAbsent ? "none" : "flex";
+    document.getElementById("taskRow").style.display      = isAbsent ? "none" : "flex";
+    document.getElementById("durationRow").style.display  = isAbsent ? "none" : "flex";
+    document.getElementById("overtime1Row").style.display = isAbsent ? "none" : "flex";
+    document.getElementById("overtime2Row").style.display = isAbsent ? "none" : "flex";
+    document.getElementById("overtime3Row").style.display = isAbsent ? "none" : "flex";
+    document.getElementById("totalHoursRow").style.display = isAbsent ? "none" : "flex";
+    document.getElementById("uploadRow").style.display    = isAbsent ? "none" : "flex";
+
+    // Relabel the date field
+    document.getElementById("dateLabel").textContent = isAbsent ? "From Date:" : "Date:";
+
+    if (isAbsent) {
+        durationField.value   = "";
+        overtime1Field.value  = "";
+        overtime2Field.value  = "";
+        overtime3Field.value  = "";
+        totalHoursField.value = "";
+        taskField.disabled    = true;
+        durationField.readOnly  = true;
+        overtime1Field.readOnly = true;
+        overtime2Field.readOnly = true;
+        overtime3Field.readOnly = true;
+    } else {
+        document.getElementById("toDate").value      = "";
+        document.getElementById("absentReason").value = "";
+        durationField.readOnly  = true;
+        taskField.disabled      = false;
+        overtime1Field.readOnly = false;
+        durationField.value     = 8;
+        overtime1Field.value    = 2;
+        totalHoursField.value   = 10;
+
+        if (document.getElementById("date").value) {
+            onDateChange();
+        }
+    }
+
+    calculateTotal();
+}
+
+        function validateOvertimeFields() {
+            const entryType = document.getElementById("entryType").value;
+            if (entryType !== "100000000") return true; // Only validate for Present
+            
+            const overtime1 = parseFloat(document.getElementById("overtime1").value) || 0;
+            const overtime2 = parseFloat(document.getElementById("overtime2").value) || 0;
+            const overtime3 = parseFloat(document.getElementById("overtime3").value) || 0;
+            const totalHours = parseFloat(document.getElementById("totalHours").value) || 0;
+            
+            let isValid = true;
+            let errorMessage = "";
+            
+            // Validate overtime1 (0-5)
+            if (overtime1 < 0 || overtime1 > 5) {
+                isValid = false;
+                errorMessage = "Overtime 1 must be between 0 and 5 hours";
+            }
+            
+            // Validate overtime2 (0-12)
+            if (overtime2 < 0 || overtime2 > 12) {
+                isValid = false;
+                errorMessage = "Overtime 2 must be between 0 and 12 hours";
+            }
+            
+            // Validate overtime3 (0-16)
+            if (overtime3 < 0 || overtime3 > 16) {
+                isValid = false;
+                errorMessage = "Overtime 3 must be between 0 and 16 hours";
+            }
+            
+            // Validate total hours (0-16)
+            if (totalHours < 0 || totalHours > 16) {
+                isValid = false;
+                errorMessage = "Total hours must be between 0 and 16 hours";
+            }
+            
+            if (!isValid) {
+                alert("Validation Error: " + errorMessage);
+            }
+            
+            return isValid;
+        }
+
+function validateOvertimeInput(fieldName) {
+    const field = document.getElementById(fieldName);
+    const value = parseFloat(field.value) || 0;
+    const maxValue = fieldName === "overtime1" ? 5 : fieldName === "overtime3" ? 16 : 12;
+
+    if (value < 0 || value > maxValue) {
+        field.style.borderColor = "#d13438";
+        field.style.backgroundColor = "#fef7f7";
+    } else {
+        field.style.borderColor = "#ccc";
+        field.style.backgroundColor = "";
+    }
+
+    // On working days: unlock OT2 and OT3 only when OT1 = 5
+    if (fieldName === "overtime1") {
+        const isSunday = (function () {
+            const d = document.getElementById("date").value;
+            if (!d) return false;
+            const p = d.split("-");
+            return new Date(p[0], p[1] - 1, p[2]).getDay() === 0;
+        })();
+        const isHoliday = (function () {
+            const d = document.getElementById("date").value;
+            if (!d) return false;
+            const parts = d.split("-");
+            const formatted = new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString('en-GB');
+            return holidayArr.includes(formatted);
+        })();
+
+        if (!isSunday && !isHoliday) {
+            const ot2 = document.getElementById("overtime2");
+            const ot3 = document.getElementById("overtime3");
+            if (value >= 5) {
+                ot2.disabled = false;
+                ot3.disabled = false;
+            } else {
+                ot2.disabled = true;
+                ot2.value = "";
+                ot3.disabled = true;
+                ot3.value = "";
+            }
+        }
+    }
+
+    calculateTotal();
+}
+
+function calculateTotal() {
+    let overtime1 = parseFloat(document.getElementById("overtime1").value) || 0;
+    let overtime2 = parseFloat(document.getElementById("overtime2").value) || 0;
+    let overtime3 = parseFloat(document.getElementById("overtime3").value) || 0;
+    let duration = parseFloat(document.getElementById("Duration").value) || 0;
+    let total = overtime1 + overtime2 + overtime3 + duration;
+    document.getElementById("totalHours").value = total;
+
+    const totalHoursField = document.getElementById("totalHours");
+    if (total < 0 || total > 16) {
+        totalHoursField.style.borderColor = "#d13438";
+        totalHoursField.style.backgroundColor = "#fef7f7";
+    } else {
+        totalHoursField.style.borderColor = "#ccc";
+        totalHoursField.style.backgroundColor = "";
+    }
+
+}
+async function uploadProjectDocument(projectId, file) {
+    if (!file) throw new Error("No file selected");
+
+    const clientUrl = parent.Xrm.Utility.getGlobalContext().getClientUrl();
+
+    // Folder name = Project GUID (cleaned)
+    const cleanProjectId = projectId.replace(/[{}]/g, "");
+
+    // 1️⃣ Get or create SharePoint folder + Document Location
+    const relativeUrl = await getOrCreateDocumentLocation(
+        clientUrl,
+        "https://bccgulf.sharepoint.com",
+        "/bcc_project",
+        "bcc_projects",
+        projectId,
+        cleanProjectId
+    );
+
+    // 2️⃣ Upload file to SharePoint
+    await uploadFileToSharePoint(relativeUrl, file);
+
+    return { success: true, message: "File uploaded to SharePoint!" };
+}
+
+async function getOrCreateDocumentLocation(clientUrl, siteUrl, library, entityName, projectId, folderName) {
+
+    const query = `${clientUrl}/api/data/v9.2/sharepointdocumentlocations?$filter=_regardingobjectid_value eq ${projectId}`;
+
+    let response = await fetch(query, {
+        method: "GET",
+        headers: { "Accept": "application/json" }
+    });
+
+    let data = await response.json();
+
+    // --------------------------------------------
+    // CASE 1: Document Location already exists
+    // --------------------------------------------
+    if (data.value.length > 0) {
+        let rel = data.value[0].relativeurl;
+
+        // FIX: if the library is missing, prepend it
+        if (!rel.startsWith(library)) {
+            rel = `${library}/${rel}`;
+        }
+
+        return rel;
+    }
+
+    // --------------------------------------------
+    // CASE 2: Create new folder and Document Location
+    // --------------------------------------------
+    const folderPath = `${library}/${folderName}`;
+
+    // 1️⃣ Create folder in SharePoint
+    await createSharePointFolder(siteUrl, folderPath);
+
+    // 2️⃣ Get SharePoint Site ID
+    const siteId = await getSharePointSiteId(clientUrl);
+
+    // 3️⃣ Create Document Location record
+    const createLocationUrl = `${clientUrl}/api/data/v9.2/sharepointdocumentlocations`;
+
+    const body = {
+        name: folderName,
+        relativeurl: folderPath,
+        "parentsiteorlocation_sharepointsite@odata.bind": `/sharepointsites(${siteId})`,
+        [`regardingobjectid_${entityName}@odata.bind`]: `/${entityName}(${projectId})`
+    };
+
+    await fetch(createLocationUrl, {
+        method: "POST",
+        headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+    });
+
+    return folderPath;
+}
+async function createSharePointFolder(siteUrl, folderRelativeUrl) {
+
+    // Encode each folder part, not the slashes
+    const safeFolderPath = folderRelativeUrl
+        .split('/')
+        .map(encodeURIComponent)
+        .join('/');
+
+    const url = `${siteUrl}/_api/web/folders/add('${safeFolderPath}')`;
+
+    // Get digest token
+    const digestRequest = await fetch(`${siteUrl}/_api/contextinfo`, {
+        method: "POST",
+        headers: {
+            "Accept": "application/json;odata=verbose"
+        }
+    });
+
+    const digestData = await digestRequest.json();
+    const digest = digestData.d.GetContextWebInformation.FormDigestValue;
+
+    // Now create folder
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Accept": "application/json;odata=verbose",
+            "Content-Type": "application/json;odata=verbose",
+            "X-RequestDigest": digest
+        }
+    });
+
+    // Ignore "folder exists" (409)
+    if (!response.ok && response.status !== 409) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create folder: ${response.status} ${response.statusText}\n${errorText}`);
+    }
+}
+
+
+async function getSharePointSiteId(clientUrl) {
+    const query = `${clientUrl}/api/data/v9.2/sharepointsites?$select=sharepointsiteid&$top=1`;
+
+    let response = await fetch(query, {
+        method: "GET",
+        headers: { "Accept": "application/json" }
+    });
+
+    let data = await response.json();
+
+    if (data.value.length === 0) {
+        throw new Error("No SharePoint site configured in Dynamics!");
+    }
+
+    return data.value[0].sharepointsiteid;
+}
+async function uploadFileToSharePoint(relativeUrl, file) {
+    // 1️⃣ Ensure folder exists in SharePoint
+    await createSharePointFolder("https://bccgulf.sharepoint.com", relativeUrl);
+
+    // 2️⃣ Encode folder path and file name safely
+    const safeFolderPath = relativeUrl.split('/').map(encodeURIComponent).join('/');
+    const encodedFileName = encodeURIComponent(file.name);
+
+   
+    const uploadUrl = "https://bccgulf.sharepoint.com/_api/web/GetFolderByServerRelativeUrl('${safeFolderPath}')/Files/AddUsingPath(DecodedUrl='${encodedFileName}')";
+
+    console.log("Uploading to:", uploadUrl);
+
+    // 4️⃣ Upload the file
+    const response = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+            "Accept": "application/json;odata=verbose",
+            "Content-Type": file.type || "application/octet-stream"
+        },
+        body: file
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`SharePoint upload failed: ${response.status} ${response.statusText}\n${errorText}`);
+    }
+
+    console.log("File uploaded successfully!");
+}
+function saveParentFormIfExists() {
+    try {
+        if (
+            parent &&
+            parent.Xrm &&
+            parent.Xrm.Page &&
+            parent.Xrm.Page.data &&
+            parent.Xrm.Page.data.entity
+        ) {
+            parent.Xrm.Page.data.entity.save();
+            console.log("Parent form saved successfully");
+        } else {
+            console.log("No parent form context found — skipping save");
+        }
+    } catch (e) {
+        console.error("Error saving parent form:", e);
+    }
+}
+
+
+/* Submit entries */
+async function submitEntries() {
+    try {
+        if (clicksubmit) return;
+        clicksubmit = true;
+
+        if (!selectedGuids) {
+            alert("No record GUIDs found.");
+            clicksubmit = false;
+            return;
+        }
+
+        const dateInput = document.getElementById("date");
+        if (!dateInput.value) {
+            alert("Please select a date.");
+            clicksubmit = false;
+            return;
+        }
+
+        const entryType1 = document.getElementById("entryType").value;
+        if (!entryType1) {
+            alert("Please select an entry type.");
+            clicksubmit = false;
+            return;
+        }
+
+        const isAbsent = entryType1 === "100000001";
+
+        if (isAbsent) {
+            // ── Absent branch — delegate to custom action ─────────────────────
+            const toDateInput = document.getElementById("toDate");
+            if (!toDateInput.value) {
+                alert("Please select a To Date.");
+                clicksubmit = false;
+                return;
+            }
+
+            const fromDate = dateInput.value;
+            const toDate   = toDateInput.value;
+
+            if (toDate < fromDate) {
+                alert("To Date cannot be earlier than From Date.");
+                clicksubmit = false;
+                return;
+            }
+
+            const absentReasonEl = document.getElementById("absentReason");
+            if (!absentReasonEl.value) {
+                alert("Please select an Absent Reason.");
+                clicksubmit = false;
+                return;
+            }
+
+            const absentReason = parseInt(absentReasonEl.value);
+            const resourceIds  = selectedGuids
+                .split(",")
+                .map(g => g.replace(/[{}]/g, "").trim())
+                .filter(Boolean)
+                .join(",");
+
+            parent.Xrm.Utility.showProgressIndicator("Creating absent time entries...");
+
+            const request = {
+                resourceIds:  resourceIds,
+                fromDate:     fromDate,
+                toDate:       toDate,
+                absentReason: absentReason,
+                getMetadata: function () {
+                    return {
+                        boundParameter: null,
+                        parameterTypes: {
+                            resourceIds:  { typeName: "Edm.String", structuralProperty: 1 },
+                            fromDate:     { typeName: "Edm.String", structuralProperty: 1 },
+                            toDate:       { typeName: "Edm.String", structuralProperty: 1 },
+                            absentReason: { typeName: "Edm.Int32",  structuralProperty: 1 }
+                        },
+                        operationType: 0,
+                        operationName: "bcc_CreateAbsentTimeEntries"
+                    };
+                }
+            };
+
+            const response = await parent.Xrm.WebApi.execute(request);
+            parent.Xrm.Utility.closeProgressIndicator();
+
+            if (response.ok) {
+                const body = await response.json();
+                const resultMsg = body["result"] || "Absent time entries created.";
+                alert(resultMsg);
+                saveParentFormIfExists();
+                clicksubmit = false;
+                closePopup();
+            } else {
+                const errText = await response.text();
+                alert("Error creating absent entries: " + errText);
+                clicksubmit = false;
+            }
+            return;
+        }
+
+        // ── Present branch (unchanged logic) ─────────────────────────────────
+        const taskid = document.getElementById("task").value;
+        if (!taskid) {
+            alert("Please select a task.");
+            clicksubmit = false;
+            return;
+        }
+
+        const selected = new Date(dateInput.value);
+        const selectedDate = new Date(
+            selected.getFullYear(),
+            selected.getMonth(),
+            selected.getDate()
+        );
+
+        const today = new Date();
+        const maxDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const minDate = new Date();
+        minDate.setDate(today.getDate() - 3);
+
+        if (selectedDate > maxDate) {
+            alert("You can't select future date!");
+            clicksubmit = false;
+            return;
+        } else if (!isSystemAdministrator() && selectedDate < minDate) {
+            alert("You can't select a date earlier than last 4 days!");
+            clicksubmit = false;
+            return;
+        }
+
+        if (!validateOvertimeFields()) {
+            clicksubmit = false;
+            return;
+        }
+
+        parent.Xrm.Utility.showProgressIndicator("Creating time entries...");
+
+        const cleanapproverid = approverId ? approverId.replace(/[{}]/g, "") : "";
+        const guids = selectedGuids.split(",");
+
+        const date = dateInput.value;
+        const entryTypeValue = parseInt(entryType1);
+        const projectguid = document.getElementById("projectDropdown").value.replace(/[{}]/g, "");
+        const taskguid = taskid ? taskid.replace(/[{}]/g, "") : "";
+
+        const overtime1 = parseFloat(document.getElementById("overtime1").value) || 0;
+        const overtime2 = parseFloat(document.getElementById("overtime2").value) || 0;
+        const overtime3 = parseFloat(document.getElementById("overtime3").value) || 0;
+        const totalHours = parseFloat(document.getElementById("totalHours").value) || 0;
+        const entryStatus = 192350003;
+
+        const fileInput = document.getElementById("fileUpload");
+        const file = fileInput?.files?.[0];
+
+        const results = { created: 0, skipped: 0, failed: 0 };
+
+        const promises = guids.map(async guid => {
+            try {
+                guid = guid.replace(/[{}]/g, "");
+
+                const filter = `?$filter=msdyn_bookableresource/bookableresourceid eq ${guid} and new_date eq ${date}`;
+                const existing = await parent.Xrm.WebApi.retrieveMultipleRecords(
+                    "msdyn_timeentry",
+                    filter
+                );
+
+                if (existing.entities.length > 0) {
+                    results.skipped++;
+                    return;
+                }
+
+                const record = {
+                    "new_date": date,
+                    "bcc_dayofdate": document.getElementById("dayName").value,
+                    "new_entrytype": entryTypeValue,
+                    "msdyn_entrystatus": entryStatus,
+                    "msdyn_bookableresource@odata.bind": `/bookableresources(${guid})`,
+                    "bcc_Project@odata.bind": `/bcc_projects(${projectguid})`,
+                    "bcc_Approver@odata.bind": `/systemusers(${cleanapproverid})`
+                };
+
+                record["bcc_isholiday"] = isholiday;
+                record["msdyn_duration"] = 480;
+                record["new_overtime1"] = overtime1;
+                record["new_overtime2"] = overtime2;
+                record["new_overtime3"] = overtime3;
+                record["bcc_total_hours"] = totalHours;
+                record["new_Task@odata.bind"] = `/msdyn_servicetasktypes(${taskguid})`;
+
+                await parent.Xrm.WebApi.createRecord("msdyn_timeentry", record);
+                results.created++;
+
+            } catch (err) {
+                console.warn("Create failed:", err.message);
+                results.failed++;
+            }
+        });
+
+        await Promise.allSettled(promises);
+
+        if (file) {
+            await CallPowerAutomate(selectedGuids, file, date);
+        }
+
+        parent.Xrm.Utility.closeProgressIndicator();
+
+        alert(
+            `Time Entry Summary:\n\n` +
+            `${results.created} time entry created\n` +
+            `${results.failed} failed due to duplicate\n`
+        );
+
+        saveParentFormIfExists();
+        clicksubmit = false;
+        closePopup();
+
+    } catch (e) {
+        parent.Xrm.Utility.closeProgressIndicator();
+        clicksubmit = false;
+        alert("Unexpected Error: " + e.message);
+        console.error(e);
+    }
+}
+
+async function CallPowerAutomate(projectguids, file, date) {
+
+    const base64 = await toBase64(file);   // Convert file
+
+    const payload = {
+        projectIds: projectguids.split(","),   // Convert string to array
+        date: date,
+        file: {
+            name: file.name,
+            contentBytes: base64
+        }
+    };
+
+    const response = await fetch("https://af80cd5c7f67e5809e0217bad953e5.46.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b1bbbcf8b929492689cbb981a1f8f3fa/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=lphkfP4zwXYCF3obTbXPmqDc_30kvWMDn4LtMaGIGsc", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        throw new Error(`Power Automate failed: ${response.status}`);
+    }
+
+    console.log("File + Date + Project IDs sent successfully");
+}
+
+
+// Convert file → Base64
+function toBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]); // remove data type
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+function showMissingEntriesDialog(resources, prevDateStr) {
+    document.getElementById("missingEntriesSubtitle").textContent =
+        `The following ${resources.length} resource(s) have no time entry for ${prevDateStr}. Please submit their time entries before proceeding.`;
+
+    const tbody = document.getElementById("missingEntriesBody");
+    tbody.innerHTML = "";
+
+    resources.forEach((res, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${i + 1}</td>
+            <td>${res["name"] || "-"}</td>
+            <td>${res["bcc_userid"] || "-"}</td>
+            <td>${prevDateStr}</td>`;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById("missingEntriesModal").classList.add("active");
+}
+
+function closeMissingEntriesDialog() {
+    document.getElementById("missingEntriesModal").classList.remove("active");
+}
+
+function closePopup() {
+    try {
+        if (typeof parent.Xrm !== "undefined" && parent.Xrm?.Navigation?.close) {
+            parent.Xrm.Navigation.close();
+        } else {
+            window.close();
+        }
+    } catch (e) {
+        console.error("Error closing popup:", e);
+        window.close();
+    }
+}
+
+</script>
+</head>
+
+<body>
+    <div class="popup-container">
+        <img src="/WebResources/bcc_ResourcePopup_image" alt="Create Time Entries" />
+
+        <div class="form-row" id="dateRow">
+           <label id="dateLabel">Date:</label>
+           <input type="date" id="date" onchange="onDateChange();" />
+        </div>
+
+    <div class="form-row" id="dayRow">
+        <label>Day:</label>
+        <input type="text" id="dayName" readonly />
+    </div>
+
+    <div class="form-row" id="toDateRow" style="display:none">
+        <label>To Date:</label>
+        <input type="date" id="toDate" />
+    </div>
+
+
+        <div class="form-row">
+            <label>Project:</label>
+            <select id="projectDropdown">
+                <option value="">-- Select Project --</option>
+            </select>
+        </div>
+
+        <div class="form-row">
+            <label>Entry Type:</label>
+            <select id="entryType" onchange="onEntryTypeChange()">
+                <option value="">-- Select Entry Type --</option>
+                <option value="100000000">Present</option>
+                <option value="100000001">Absent</option>
+            </select>
+        </div>
+
+        <div class="form-row" id="absentReasonRow" style="display:none">
+            <label>Absent Reason:</label>
+            <select id="absentReason">
+                <option value="">-- Select Reason --</option>
+                <option value="755700000">Sick Leave</option>
+                <option value="755700001">Vacation Leave</option>
+                <option value="755700002">Unpaid</option>
+                <option value="755700003">Field Emergency Leave</option>
+            </select>
+        </div>
+
+        <div class="form-row" id="taskRow">
+            <label>Task:</label>
+            <select id="task">
+                <option value="">-- Select Task --</option>
+            </select>
+        </div>
+
+        <div class="form-row" id="durationRow">
+            <label>Duration:</label>
+            <input type="number" id="Duration" readonly />
+        </div>
+
+        <div class="form-row" id="overtime1Row">
+            <label>Overtime 1 (hrs):</label>
+            <input type="number" id="overtime1"
+                   oninput="validateOvertimeInput('overtime1')"
+                   min="0" max="5"
+                   placeholder="Enter hours(0-5)" />
+        </div>
+
+        <div class="form-row" id="overtime2Row">
+            <label>Overtime 2 (hrs):</label>
+            <input type="number" id="overtime2"
+                   oninput="validateOvertimeInput('overtime2')"
+                   min="0" max="12"
+                    placeholder="Enter hours(0-12)"/>
+        </div>
+
+        <div class="form-row" id="overtime3Row">
+            <label>Overtime 3 (hrs):</label>
+            <input type="number" id="overtime3"
+                   oninput="validateOvertimeInput('overtime3')"
+                   min="0" max="16"
+                    placeholder="Enter hours(0-16)"/>
+        </div>
+
+        <div class="form-row" id="totalHoursRow">
+            <label>Total Hours:</label>
+            <input type="number" id="totalHours" readonly />
+        </div>
+
+        <div class="form-row" id="uploadRow">
+            <label>Upload File:</label>
+            <input type="file" onchange="checkfileformat()" id="fileUpload" />
+        </div>
+
+        <div class="button-group">
+            <button class="submit-btn" onclick="submitEntries()">Submit</button>
+            <button class="close-btn" onclick="closePopup()">Close</button>
+        </div>
+    </div>
+
+    <!-- Missing Time Entries Dialog -->
+    <div class="modal-overlay" id="missingEntriesModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span class="modal-header-icon">&#9888;</span>
+                <span class="modal-title">Missing Time Entries — Previous Day</span>
+            </div>
+            <p class="modal-subtitle" id="missingEntriesSubtitle"></p>
+            <table class="modal-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Employee Name</th>
+                        <th>Employee ID</th>
+                        <th>Missing Date</th>
+                    </tr>
+                </thead>
+                <tbody id="missingEntriesBody"></tbody>
+            </table>
+            <div class="modal-footer">
+                <button class="close-btn" onclick="closeMissingEntriesDialog()">OK</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

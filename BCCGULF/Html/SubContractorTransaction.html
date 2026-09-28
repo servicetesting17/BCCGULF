@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sub Contractor Transaction</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 5px;
+            font-size: 11px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            max-height: 95vh;
+        }
+        
+        .header {
+            margin-bottom: 8px;
+            border-bottom: 1px solid #667eea;
+            padding-bottom: 5px;
+            flex-shrink: 0;
+        } 
+        
+        .header h1 {
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 2px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 10px;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+            margin-bottom: 8px;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            font-size: 11px;
+        }
+        
+        thead {
+            background: #667eea;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        
+        th {
+            padding: 7px 8px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #667eea;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 12px;
+        }
+        
+        tbody tr:hover {
+            background: #f5f5f5;
+            transition: background 0.2s ease;
+        }
+        
+        tbody tr:nth-child(even) {
+            background: #fafafa;
+        }
+        
+        input[type="date"],
+        input[type="number"] {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 11px;
+            font-family: inherit;
+        }
+        
+        input[type="date"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        input[type="date"]:disabled {
+            background: #f0f0f0;
+            cursor: not-allowed;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;            flex-shrink: 0;        }
+        
+        button {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-submit {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-submit:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-submit:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-reset {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .btn-reset:hover {
+            background: #d0d0d0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .message {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 12px;            flex-shrink: 0;        }
+        
+        .message.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+        
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .error-details {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 11px;
+            display: none;            flex-shrink: 0;
+            overflow-y: auto;
+            max-height: 80px;        }
+        
+        .error-details.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Sub Contractor Transaction Management</h1>
+            <p id="headerDescription">Create transaction records for sub contractors with date and count</p>
+        </div>
+        
+        <div id="messageContainer" class="message"></div>
+        
+        <div class="table-wrapper">
+            <table id="subContractorTable">
+                <thead>
+                    <tr>
+                        <th>Sub Contractor Name</th>
+                        <th>Date</th>
+                        <th>Count</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr class="empty-state">
+                        <td colspan="3">
+                            <div>Loading Sub Contractor records <span class="loading-spinner"></span></div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="actions">
+            <button class="btn-submit" id="submitBtn" onclick="submitTransactions()">Submit</button>
+            <button class="btn-reset" id="resetBtn" onclick="resetForm()">Reset</button>
+        </div>
+        
+        <div id="errorDetails" class="error-details"></div>
+    </div>
+
+    <script>
+        // Configuration
+        const SUBCONTRACTOR_ENTITY = "bcc_subcontractor";
+        const TRANSACTION_ENTITY = "bcc_subcontractortransaction";
+        const SUBCONTRACTOR_ID_ATTR = "bcc_subcontractorid";
+        const SUBCONTRACTOR_NAME_ATTR = "bcc_name";
+        const TRANSACTION_COUNT_ATTR = "bcc_count";
+        const TRANSACTION_DATE_ATTR = "bcc_date";
+        const TRANSACTION_SUBCONTRACTOR_ATTR = "bcc_SubContractorId";
+        const TRANSACTION_NAME_ATTR = "bcc_name";
+
+        let subContractors = [];
+        let currentProject = null;
+
+        function normalizeGuid(value) {
+            return (value || '').replace(/[{}]/g, '');
+        }
+
+        function getLaunchContext() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const launchData = params.get('data');
+                if (!launchData) {
+                    return {};
+                }
+
+                const parsed = JSON.parse(decodeURIComponent(launchData));
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            } catch (error) {
+                console.warn('Unable to parse launch context:', error);
+                return {};
+            }
+        }
+
+        function updateHeaderContext() {
+            const headerDescription = document.getElementById('headerDescription');
+            if (!headerDescription) {
+                return;
+            }
+
+            if (currentProject && currentProject.projectId) {
+                const projectLabel = currentProject.projectName ? ` for ${currentProject.projectName}` : '';
+                headerDescription.textContent = `Create transaction records for sub contractors${projectLabel} with date and count`;
+            } else {
+                headerDescription.textContent = 'Create transaction records for sub contractors with date and count';
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            currentProject = getLaunchContext();
+            updateHeaderContext();
+            loadSubContractors();
+        });
+
+        /**
+         * Get current date in YYYY-MM-DD format
+         */
+        function getCurrentDate() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        /**
+         * Show message to user
+         */
+        function showMessage(message, type = 'info') {
+            const messageContainer = document.getElementById('messageContainer');
+            messageContainer.textContent = message;
+            messageContainer.className = `message show ${type}`;
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    messageContainer.classList.remove('show');
+                }, 5000);
+            }
+        }
+
+        /**
+         * Show error details
+         */
+        function showErrorDetails(error) {
+            const errorDetails = document.getElementById('errorDetails');
+            let errorMessage = error.message || 'Unknown error occurred';
+            
+            if (error.responseJSON && error.responseJSON.error && error.responseJSON.error.message) {
+                errorMessage = error.responseJSON.error.message;
+            }
+            
+            errorDetails.textContent = 'Error Details: ' + errorMessage;
+            errorDetails.classList.add('show');
+        }
+
+        /**
+         * Load all Sub Contractor records
+         */
+        function loadSubContractors() {
+            // Check if Xrm is available
+            if (typeof parent === 'undefined' || !parent.Xrm || !parent.Xrm.WebApi) {
+                showMessage('Dynamics 365 API not available. Please use this form within Dynamics 365.', 'error');
+                disableForm();
+                return;
+            }
+
+            const query = `?$select=${SUBCONTRACTOR_ID_ATTR},${SUBCONTRACTOR_NAME_ATTR}&$filter=statecode eq 0&$orderby=${SUBCONTRACTOR_NAME_ATTR} asc`;
+
+            parent.Xrm.WebApi.retrieveMultipleRecords(SUBCONTRACTOR_ENTITY, query)
+                .then(function(result) {
+                    if (result.entities && result.entities.length > 0) {
+                        subContractors = result.entities;
+                        populateTable(subContractors);
+                        showMessage(`Loaded ${subContractors.length} sub contractor records successfully.`, 'success');
+                    } else {
+                        showEmptyState('No active sub contractor records found.');
+                    }
+                })
+                .catch(function(error) {
+                    showMessage('Failed to load sub contractor records.', 'error');
+                    showErrorDetails(error);
+                    showEmptyState('Error loading records. Please check console for details.');
+                    console.error('Error loading sub contractors:', error);
+                });
+        }
+
+        /**
+         * Populate table with sub contractor records
+         */
+        function populateTable(records) {
+            const tableBody = document.getElementById('tableBody');
+            const currentDate = getCurrentDate();
+            
+            tableBody.innerHTML = '';
+            
+            records.forEach(function(record) {
+                const subContractorId = record[SUBCONTRACTOR_ID_ATTR];
+                const subContractorName = record[SUBCONTRACTOR_NAME_ATTR];
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <strong>${escapeHtml(subContractorName)}</strong>
+                        <input type="hidden" class="subcontractor-id" value="${escapeHtml(subContractorId)}">
+                    </td>
+                    <td>
+                        <input type="date" class="transaction-date" value="${currentDate}">
+                    </td>
+                    <td>
+                        <input type="number" class="transaction-count" value="0" min="0" max="999999" step="1" inputmode="numeric" required>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // Enable submit button
+            document.getElementById('submitBtn').disabled = false;
+        }
+
+        /**
+         * Show empty state message
+         */
+        function showEmptyState(message) {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = `
+                <tr class="empty-state">
+                    <td colspan="3">
+                        <div>${message}</div>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('submitBtn').disabled = true;
+        }
+
+        /**
+         * Escape HTML special characters
+         */
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        /**
+         * Validate form data
+         */
+        function validateForm() {
+            const rows = document.querySelectorAll('#tableBody tr');
+            let hasErrors = false;
+            let errorMessages = [];
+
+            rows.forEach(function(row, index) {
+                const countInput = row.querySelector('.transaction-count');
+                const count = countInput.value.trim();
+
+                if (!count || count === '' || isNaN(count) || parseInt(count) < 0) {
+                    hasErrors = true;
+                    errorMessages.push(`Row ${index + 1}: Count must be a valid non-negative number`);
+                    countInput.style.borderColor = '#dc3545';
+                }
+            });
+
+            if (hasErrors) {
+                showMessage('Please fix validation errors before submitting.', 'error');
+                document.getElementById('errorDetails').textContent = 'Validation Errors:\n' + errorMessages.join('\n');
+                document.getElementById('errorDetails').classList.add('show');
+                return false;
+            }
+
+            document.getElementById('errorDetails').classList.remove('show');
+            return true;
+        }
+
+        /**
+         * Submit and create transaction records
+         */
+        function submitTransactions() {
+            // Reset error styles
+            document.querySelectorAll('.transaction-count').forEach(input => {
+                input.style.borderColor = '';
+            });
+
+            if (!validateForm()) {
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+
+            const rows = document.querySelectorAll('#tableBody tr');
+            const promises = [];
+            let successCount = 0;
+            let errorCount = 0;
+
+            rows.forEach(function(row) {
+                const subContractorId = row.querySelector('.subcontractor-id').value;
+                const subContractorName = row.querySelector('td:first-child strong').textContent;
+                const date = row.querySelector('.transaction-date').value;
+                const count = parseInt(row.querySelector('.transaction-count').value);
+
+                if (count > 0) { // Only create if count is greater than zero
+                    const transactionRecord = {};
+                    transactionRecord[TRANSACTION_NAME_ATTR] = `${subContractorName} - ${date}`;
+                    transactionRecord[TRANSACTION_COUNT_ATTR] = count;
+                    transactionRecord[TRANSACTION_DATE_ATTR] = new Date(date).toISOString();
+                    transactionRecord[`${TRANSACTION_SUBCONTRACTOR_ATTR}@odata.bind`] = `/bcc_subcontractors(${subContractorId})`;
+
+                    if (currentProject && currentProject.projectId) {
+                        const projectId = normalizeGuid(currentProject.projectId);
+                        transactionRecord['bcc_ProjectId@odata.bind'] = `/bcc_projects(${projectId})`;
+                    }
+
+                    const promise = parent.Xrm.WebApi.createRecord(TRANSACTION_ENTITY, transactionRecord)
+                        .then(function(result) {
+                            successCount++;
+                            return {
+                                success: true,
+                                subContractorName: subContractorName,
+                                id: result.id
+                            };
+                        })
+                        .catch(function(error) {
+                            errorCount++;
+                            console.error(`Error creating transaction for ${subContractorName}:`, error);
+                            return {
+                                success: false,
+                                subContractorName: subContractorName,
+                                error: error
+                            };
+                        });
+
+                    promises.push(promise);
+                }
+            });
+
+            Promise.all(promises)
+                .then(function(results) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit';
+
+                    if (errorCount === 0) {
+                        showMessage(`Successfully created ${successCount} transaction records!`, 'success');
+                        setTimeout(() => {
+                            resetForm();
+                        }, 2000);
+                    } else {
+                        const message = `Created ${successCount} records with ${errorCount} errors. Please review the details.`;
+                        showMessage(message, 'error');
+                        
+                        const failedRecords = results.filter(r => !r.success);
+                        if (failedRecords.length > 0) {
+                            let errorDetails = 'Failed Records:\n';
+                            failedRecords.forEach(record => {
+                                errorDetails += `${record.subContractorName}: ${record.error.message || 'Unknown error'}\n`;
+                            });
+                            document.getElementById('errorDetails').textContent = errorDetails;
+                            document.getElementById('errorDetails').classList.add('show');
+                        }
+                    }
+                })
+                .catch(function(error) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit';
+                    showMessage('An unexpected error occurred while submitting records.', 'error');
+                    showErrorDetails(error);
+                    console.error('Unexpected error:', error);
+                });
+        }
+
+        /**
+         * Reset form
+         */
+        function resetForm() {
+            document.getElementById('tableBody').innerHTML = '';
+            document.getElementById('messageContainer').classList.remove('show');
+            document.getElementById('errorDetails').classList.remove('show');
+            document.getElementById('submitBtn').disabled = true;
+            loadSubContractors();
+        }
+
+        /**
+         * Disable form when Xrm is not available
+         */
+        function disableForm() {
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('resetBtn').disabled = true;
+        }
+    </script>
+</body>
+</html>
