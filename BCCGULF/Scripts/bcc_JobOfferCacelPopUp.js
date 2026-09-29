@@ -12,20 +12,11 @@ var CancelOnDeactivate = {
             entityName = formContext.data.entity.getEntityName();
         }
         else if (primaryControl && primaryControl.getGrid) {
-
-            var selectedRows = primaryControl.getGrid().getSelectedRows();
-
-            if (selectedRows.getLength() !== 1) {
-                Xrm.Navigation.openAlertDialog({
-                    title: "Select one record",
-                    text: "Please select exactly one record to cancel."
-                });
-                return;
-            }
-
-            var row = selectedRows.get(0);
-            recordId = row.getData().getEntity().getId();
-            entityName = row.getData().getEntity().getEntityName();
+            Xrm.Navigation.openAlertDialog({
+                title: "Open the Job Offer",
+                text: "To cancel and switch directly to the Cancellation BPF, open the Job Offer record and run this action from its form."
+            });
+            return;
         }
         else {
             Xrm.Navigation.openAlertDialog({
@@ -151,8 +142,8 @@ var CancelOnDeactivate = {
                     "Accept": "application/json"
                 },
                 body: JSON.stringify({
-                    statecode: 1,
-                    statuscode: 755700012
+                    statecode: 0,
+                    statuscode: 755700013
                 })
             }).then(function (response) {
                 if (response.ok || response.status === 204) {
@@ -166,6 +157,49 @@ var CancelOnDeactivate = {
                 }
             }).catch(function (err) {
                 reject(err);
+            });
+        });
+    },
+
+    // ===============================
+    // ACTIVATE CANCELLATION BPF
+    // ===============================
+    activateCancellationBpf: function (entityName, formContext) {
+        var processUniqueName = "bcc_cancellationbpf";
+        var query = "?$select=workflowid,uniquename&$filter=uniquename eq '" +
+            processUniqueName + "' and category eq 4 and statecode eq 1";
+
+        if (!formContext || !formContext.data || !formContext.data.process ||
+            typeof formContext.data.process.setActiveProcess !== "function") {
+            return Promise.reject(new Error(
+                "The record form does not expose the BPF process control."
+            ));
+        }
+
+        return Xrm.WebApi.retrieveMultipleRecords("workflow", query).then(function (result) {
+            var processes = result.entities;
+            if (processes.length !== 1) {
+                throw new Error(
+                    "Expected one active Cancellation BPF (" + processUniqueName +
+                    "), but found " + processes.length + "."
+                );
+            }
+
+            return new Promise(function (resolve, reject) {
+                formContext.data.process.setActiveProcess(
+                    processes[0].workflowid.toUpperCase(),
+                    function (status) {
+                        if (status === "success") {
+                            resolve();
+                        } else {
+                            reject(new Error(
+                                "Could not switch to the Cancellation BPF (" + status + "). " +
+                                "Confirm the process is enabled for " + entityName +
+                                " and available to this user."
+                            ));
+                        }
+                    }
+                );
             });
         });
     },
@@ -549,20 +583,33 @@ var CancelOnDeactivate = {
             }).then(function () {
 
                 // ===============================
-                // STEP 4: Deactivate the record LAST
+                // STEP 4: Deactivate the record
                 // ===============================
                 return CancelOnDeactivate.deactivateRecord(entityName, recordId);
+
+            }).then(function () {
+
+                // ===============================
+                // STEP 5: Switch the form directly to the Cancellation BPF.
+                // ===============================
+                return CancelOnDeactivate.activateCancellationBpf(entityName, formContext)
+                    .catch(function (err) {
+                        throw new Error(
+                            "Record was deactivated, but the Cancellation BPF could not be activated: " +
+                            (err.message || JSON.stringify(err))
+                        );
+                    });
 
             }).then(function () {
 
                 CancelOnDeactivate.removeModal();
 
                 // ===============================
-                // STEP 5: Success + Navigate
+                // STEP 6: Success + Navigate
                 // ===============================
                 Xrm.Navigation.openAlertDialog({
                     title: "Success",
-                    text: "Record has been cancelled and deactivated successfully."
+                    text: "Record has been cancelled, deactivated, and moved to the Cancellation BPF."
                 }).then(function () {
 
                     if (formContext) {
