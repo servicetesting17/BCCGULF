@@ -110,7 +110,8 @@ namespace BCCGULF.CustomAPI
             SetIfNotEmpty(entity, "bcc_visano", model.bcc_visano, tracingService);
             SetIfNotEmpty(entity, "new_address", model.new_address, tracingService);
             SetIfNotEmpty(entity, "new_contactid", model.new_contactid, tracingService);
-            SetIfNotEmpty(entity, "new_givennames", model.new_givennames, tracingService);
+            SetIfNotEmpty(entity, "new_givennames", model.bcc_firstname, tracingService);
+            SetIfNotEmpty(entity, "bcc_firstname", model.bcc_firstname, tracingService);
 
             // 🔹 NUMBERS / MONEY
             SetMoney(entity, "bcc_allowance", model.bcc_allowance, tracingService);
@@ -330,6 +331,7 @@ namespace BCCGULF.CustomAPI
             [DataMember] public decimal? bcc_labourfeeamount { get; set; }
             [DataMember] public decimal? bcc_labourfeecharged { get; set; }
             [DataMember] public string bcc_lastname { get; set; }
+            [DataMember] public string bcc_firstname { get; set; }
             [DataMember] public string bcc_manpowerquota { get; set; }
             [DataMember] public string bcc_manpowerrequest { get; set; }
             [DataMember] public int? bcc_medicalinsurance { get; set; }

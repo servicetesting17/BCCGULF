@@ -330,69 +330,76 @@ function toAgency_onclickk(primaryControl) {
     debugger;
     var formContext = primaryControl;
     var jobAppAttr = formContext.getAttribute("bcc_jobapplication");
-    if (!jobAppAttr) {
-        console.log("Job Application field not found on form");
-        return;
-    }
-    var jobApp = jobAppAttr.getValue();
-    if (!jobApp) return;
-    var jobAppId = jobApp[0].id.replace(/[{}]/g, "");
     var recordId = formContext.data.entity.getId().replace(/[{}]/g, "");
     var owner = Xrm.Utility.getGlobalContext().userSettings.userId.replace(/[{}]/g, "");
     var ownerId = owner;
 
     var fieldsToAttach = getAttachFieldsByFormm(formContext);
     var template = getEmailTemplatee(formContext);
+    var accountIdPromise;
 
-    Xrm.WebApi.retrieveRecord("bcc_jobapplication", jobAppId, "?$select=_bcc_manpowerrequest_value")
-        .then(function (jobAppResult) {
-            var manpowerId = jobAppResult["_bcc_manpowerrequest_value"];
-            if (!manpowerId) return;
-            return Xrm.WebApi.retrieveRecord("bcc_manpowerrequest", manpowerId, "?$select=_bcc_agency_value");
-        })
-        .then(function (manpowerResult) {
-            if (!manpowerResult) return;
-            var accountId = manpowerResult["_bcc_agency_value"];
-            if (!accountId) return;
-
-            var parties = [
-                {
-                    "partyid_account@odata.bind": "/accounts(" + accountId + ")",
-                    "participationtypemask": 2
-                },
-                {
-                    "partyid_systemuser@odata.bind": "/systemusers(" + ownerId + ")",
-                    "participationtypemask": 1
-                }
-            ].concat(buildCcPartiest(formContext));
-
-            var emailRecord = {
-                "subject": template.subject,
-                "description": template.body,
-                "directioncode": true,
-                "email_activity_parties": parties
-            };
-
-            return Xrm.WebApi.createRecord("email", emailRecord).then(function (result) {
-                var emailId = result.id.replace(/[{}]/g, "");
-                console.log("Email created: " + emailId);
-
-                var attachPromises = fieldsToAttach.map(function (fieldName) {
-                    return attachFilePromisee(fieldName, emailId, recordId);
-                });
-
-                return Promise.all(attachPromises).then(function () {
-                    Xrm.Navigation.openForm({ entityName: "email", entityId: emailId });
-                    updateMailStatuss(recordId, 755700001);
-                }).catch(function () {
-                    Xrm.Navigation.openForm({ entityName: "email", entityId: emailId });
-                    updateMailStatuss(recordId, 755700001);
-                });
+    var jobApp = jobAppAttr && jobAppAttr.getValue();
+    if (jobApp && jobApp.length) {
+        var jobAppId = jobApp[0].id.replace(/[{}]/g, "");
+        accountIdPromise = Xrm.WebApi.retrieveRecord("bcc_jobapplication", jobAppId, "?$select=_bcc_manpowerrequest_value")
+            .then(function (jobAppResult) {
+                var manpowerId = jobAppResult["_bcc_manpowerrequest_value"];
+                if (!manpowerId) return null;
+                return Xrm.WebApi.retrieveRecord("bcc_manpowerrequest", manpowerId, "?$select=_bcc_agency_value");
+            })
+            .then(function (manpowerResult) {
+                return manpowerResult ? manpowerResult["_bcc_agency_value"] : null;
             });
-        })
-        .catch(function (error) {
-            console.log("Error: " + error.message);
+    } else {
+        var agencyAttr = formContext.getAttribute("bcc_agency");
+        var agency = agencyAttr && agencyAttr.getValue();
+        if (!agency || !agency.length) {
+            console.log("Agency field is empty or not found on form");
+            return;
+        }
+        accountIdPromise = Promise.resolve(agency[0].id.replace(/[{}]/g, ""));
+    }
+
+    accountIdPromise.then(function (accountId) {
+        if (!accountId) return;
+
+        var parties = [
+            {
+                "partyid_account@odata.bind": "/accounts(" + accountId + ")",
+                "participationtypemask": 2
+            },
+            {
+                "partyid_systemuser@odata.bind": "/systemusers(" + ownerId + ")",
+                "participationtypemask": 1
+            }
+        ].concat(buildCcPartiest(formContext));
+
+        var emailRecord = {
+            "subject": template.subject,
+            "description": template.body,
+            "directioncode": true,
+            "email_activity_parties": parties
+        };
+
+        return Xrm.WebApi.createRecord("email", emailRecord).then(function (result) {
+            var emailId = result.id.replace(/[{}]/g, "");
+            console.log("Email created: " + emailId);
+
+            var attachPromises = fieldsToAttach.map(function (fieldName) {
+                return attachFilePromisee(fieldName, emailId, recordId);
+            });
+
+            return Promise.all(attachPromises).then(function () {
+                Xrm.Navigation.openForm({ entityName: "email", entityId: emailId });
+                updateMailStatuss(recordId, 755700001);
+            }).catch(function () {
+                Xrm.Navigation.openForm({ entityName: "email", entityId: emailId });
+                updateMailStatuss(recordId, 755700001);
+            });
         });
+    }).catch(function (error) {
+        console.log("Error: " + error.message);
+    });
 }
 
 function updateMailStatuss(recordId, newValue) {

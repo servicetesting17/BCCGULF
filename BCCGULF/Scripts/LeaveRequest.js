@@ -183,6 +183,7 @@ LeaveRequest.Form = {
                 ? (leaveTypeValue[0].name || "")
                 : "";
             var isEmergencyLeave = leaveTypeName.toLowerCase().indexOf("emergency") !== -1;
+            var isSickLeave = leaveTypeName.toLowerCase().indexOf("sick") !== -1;
             var isStaff = (LeaveRequest.Form.currentResourceTypeValue === LeaveRequest.Form.config.staffResourceTypeValue);
 
             if (isEmergencyLeave) {
@@ -199,7 +200,13 @@ LeaveRequest.Form = {
 
             LeaveRequest.Form.fetchHolidayDates(startDate, endDate)
                 .then(function (holidayDates) {
-                    var totalDays = LeaveRequest.Form.calculateLeaveDaysExcludingNonWorkingDays(startDate, endDate, holidayDates, isStaff);
+                    var totalDays = LeaveRequest.Form.calculateLeaveDaysExcludingNonWorkingDays(
+                        startDate,
+                        endDate,
+                        holidayDates,
+                        isStaff,
+                        isStaff && isSickLeave
+                    );
                     daysAttr.setValue(totalDays);
                     console.log("Number of days calculated: " + totalDays + " (excludeWeekends=" + isStaff + ")");
                 })
@@ -215,8 +222,9 @@ LeaveRequest.Form = {
     /**
      * Calculate leave days excluding holidays, and weekends only for Staff resource type.
      * @param {boolean} excludeWeekends - true when the bookable resource type is Staff
+     * @param {boolean} excludeSundayOnly - true for Staff Sick Leave, where Saturday is counted
      */
-    calculateLeaveDaysExcludingNonWorkingDays: function (startDate, endDate, holidayDates, excludeWeekends) {
+    calculateLeaveDaysExcludingNonWorkingDays: function (startDate, endDate, holidayDates, excludeWeekends, excludeSundayOnly) {
         var HALF_DAY_HOUR = 13; // 1 PM
         var totalDays = 0;
         var current = new Date(startDate);
@@ -228,7 +236,9 @@ LeaveRequest.Form = {
         while (current <= endDay) {
             var currentDateKey = LeaveRequest.Form.getDateKey(current);
             var dayOfWeek = current.getDay();
-            var isWeekend = (dayOfWeek === 0 || dayOfWeek === 6) && excludeWeekends;
+            var isWeekend = excludeWeekends && (excludeSundayOnly
+                ? dayOfWeek === 0
+                : dayOfWeek === 0 || dayOfWeek === 6);
             var isHoliday = holidayDates[currentDateKey] === true && excludeWeekends;
 
             if (isWeekend || isHoliday) {
@@ -621,7 +631,7 @@ LeaveRequest.Form = {
     },
 
     /**
-     * Show Success Alert
+     * Show Success Alerta
      */
     showSuccessAlert: function (message) {
         try {

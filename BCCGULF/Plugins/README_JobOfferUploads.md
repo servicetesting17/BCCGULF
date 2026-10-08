@@ -3,6 +3,47 @@
 ## Overview
 The `JobOfferUploads` plugin automatically detects when files are uploaded to JobOffer records and sends them to the Yovan ERP API with the appropriate payload format for each file type.
 
+## Request to Proceed Webhook
+
+When `bcc_requesttoproceed` changes from `false` to `true`, the plugin sends a
+POST request to `https://eportal.yovant.ae/api/bcc/webhook/request-to-proceed`.
+The webhook uses the `X-API-Key` header and sends this payload:
+
+```json
+{
+  "passport_no": "AR111951",
+  "status": "request_to_proceed",
+  "status_date": "2026-09-29T10:30:00",
+  "bcc_reference": "BCC-PRO-000123"
+}
+```
+
+`passport_no` is read from `bcc_passportno`, `bcc_reference` from
+`bcc_jobapplicationnumber`, and `status_date` is the current UTC time formatted
+as `yyyy-MM-ddTHH:mm:ss`.
+
+The webhook response must contain `"success": true` for the plugin to continue.
+A false or missing `success` value raises a plugin error. To display that error
+to the user in the model-driven app, the plugin step must run synchronously;
+an asynchronous step can only report the failure in the system job.
+
+The separate `Request_Proceed` call must also return `"state_changed": true`
+(for example, `{"job_offer_state":"submitted","state_changed":true}`). If
+`state_changed` is false, the plugin raises an error.
+
+## Entry Permit Application API
+
+When either `bcc_entrypermitapplication` or `bcc_ereceipt` is first uploaded,
+the plugin posts to
+`https://eportal.yovant.ae/api/bcc/webhook/entry-permit-application`.
+Both files must be present because the API requires both base64 values. The
+payload includes the passport number from `bcc_passportno` and the application
+number from `bcc_jobapplicationnumber`. Optional API properties are omitted.
+
+Add `bcc_entrypermitapplication`, `bcc_ereceipt`,
+`bcc_passportno`, and `bcc_jobapplicationnumber` to the plugin step's PostImage.
+Include the file attributes in the PreImage as well to detect their first upload.
+
 ## Supported File Types
 
 ### 1. **MohreLetter** (MOHRE Offer Letter)
@@ -135,6 +176,8 @@ The plugin uses the **InitializeFileBlocksDownloadRequest** and **DownloadBlockR
 Register with BOTH PreImage and PostImage using alias: **"Image"**
 
 **Attributes to Include:**
+- `bcc_requesttoproceed`
+- `bcc_jobapplicationnumber` (For request-to-proceed webhook reference)
 - `bcc_passportno`
 - `bcc_joboffer` (JobOffer file)
 - `bcc_joboffer_name`

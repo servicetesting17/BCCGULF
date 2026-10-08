@@ -4,9 +4,9 @@ BCC.JobOfferRenewal = BCC.JobOfferRenewal || {};
 BCC.JobOfferRenewal.IsRenewButtonVisible = function (primaryControl) {
     try {
         var formContext = primaryControl;
-        var statecodeAttr = formContext.getAttribute("statecode");
+        var statecodeAttr = formContext.getAttribute("bcc_renewalstatus");
         if (!statecodeAttr) return false;
-        return statecodeAttr.getValue() === 1; // 1 = Inactive/Deactivated
+        return statecodeAttr.getValue() === 755700001; // 1 = Inactive/Deactivated
     } catch (e) {
         console.error("BCC.JobOfferRenewal.IsRenewButtonVisible Error:", e);
         return false;
@@ -34,25 +34,13 @@ BCC.JobOfferRenewal.CloneJobOffer = async function (primaryControl) {
         Xrm.Utility.showProgressIndicator("Renewing Job Offer. Please wait...");
 
         var sourceRecord = await Xrm.WebApi.retrieveRecord("bcc_joboffer", sourceRecordId);
-        var simpleFields = [
-            {
-                "FieldName": "bcc_jobapplicationnumber",
-                "FieldType": "string"
-            },
+        var simpleFields = [           
             {
                 "FieldName": "bcc_mailstatus",
                 "FieldType": "multiselectoptionset"
             },
             {
-                "FieldName": "bcc_parentjoboffer",
-                "FieldType": "lookup"
-            },
-            {
                 "FieldName": "bcc_joboffernumber",
-                "FieldType": "string"
-            },
-            {
-                "FieldName": "bcc_cancelreason",
                 "FieldType": "string"
             },
             {
@@ -62,10 +50,6 @@ BCC.JobOfferRenewal.CloneJobOffer = async function (primaryControl) {
             {
                 "FieldName": "bcc_weeklyrest",
                 "FieldType": "multiselectoptionset"
-            },
-            {
-                "FieldName": "bcc_canceldocumentuploaddate",
-                "FieldType": "datetime"
             },
             {
                 "FieldName": "bcc_noticeperiod",
@@ -104,20 +88,12 @@ BCC.JobOfferRenewal.CloneJobOffer = async function (primaryControl) {
                 "FieldType": "string"
             },
             {
-                "FieldName": "bcc_rejectremark",
-                "FieldType": "string"
-            },
-            {
                 "FieldName": "bcc_middlename",
                 "FieldType": "string"
             },
             {
                 "FieldName": "bcc_lastname",
                 "FieldType": "string"
-            },
-            {
-                "FieldName": "bcc_rejectdocuploaddate",
-                "FieldType": "datetime"
             },
             {
                 "FieldName": "bcc_dateofbirth",
@@ -366,7 +342,6 @@ BCC.JobOfferRenewal.CloneJobOffer = async function (primaryControl) {
         cloneData["bcc_contract"] = 755700001;
         cloneData["bcc_Parentjoboffer@odata.bind"] =  "/bcc_joboffers(" + sourceRecordId + ")";
         var lookupMappings = {
-            "bcc_parentjoboffer": { navigationProperty: "bcc_Parentjoboffer", entitySetName: "bcc_joboffers" },
             "bcc_manpowerrequest": { navigationProperty: "bcc_ManPowerRequest", entitySetName: "bcc_manpowerrequests" },
             "bcc_manpowerquota": { navigationProperty: "bcc_ManPowerQuota", entitySetName: "bcc_manpowerquotas" },
             "bcc_contact": { navigationProperty: "bcc_Contact", entitySetName: "contacts" },
@@ -418,8 +393,6 @@ BCC.JobOfferRenewal.CloneJobOffer = async function (primaryControl) {
         var newRecordId = newRecord.id.replace(/[{}]/g, "");
 
         var fileMappings = [
-            { source: "bcc_canceldocument", target: "bcc_canceldocument", isImage: false },
-            { source: "bcc_rejectdoc1", target: "bcc_rejectdoc1", isImage: false },
             { source: "bcc_uploadmadicaltest", target: "bcc_uploadmadicaltest", isImage: false },
             { source: "bcc_iloedocument", target: "bcc_iloedocument", isImage: false },
             { source: "bcc_tawjiitrainingdocument", target: "bcc_tawjiitrainingdocument", isImage: false },
@@ -432,7 +405,6 @@ BCC.JobOfferRenewal.CloneJobOffer = async function (primaryControl) {
             { source: "bcc_passport3", target: "bcc_passport3", isImage: false },
             { source: "bcc_workerform", target: "bcc_workerform", isImage: false },
             { source: "bcc_otherdocument", target: "bcc_otherdocument", isImage: false },
-            { source: "bcc_cancellationform", target: "bcc_cancellationform", isImage: false },
             { source: "bcc_image", target: "bcc_image", isImage: true },
             { source: "bcc_mohreletter", target: "bcc_mohreletter", isImage: false },
             { source: "bcc_joboffer", target: "bcc_joboffer", isImage: false },

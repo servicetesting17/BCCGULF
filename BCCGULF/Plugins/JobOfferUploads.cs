@@ -3,6 +3,7 @@ using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -34,6 +35,12 @@ namespace BCCGULF.Plugins
         // Configuration - Update these with your actual values
         private const string BASE_API_URL = "https://eportal.yovant.ae/api/bcc/webhook/";
         private const string API_KEY = "cc782227-a72c-40e0-97e4-6e7771f2d0c1";
+        private const string REQUEST_TO_PROCEED_FIELD = "bcc_requesttoproceed";
+        private const string JOB_APPLICATION_NUMBER_FIELD = "bcc_jobapplicationnumber";
+        private const string Application_Number = "bcc_jobapplicationnumber";
+        private const string ENTRY_PERMIT_APPLICATION_FILE_FIELD = "bcc_entrypermitapplication";
+        private const string ERECEIPT_FILE_FIELD = "bcc_ereceipt";
+        private const string INTEGRATION_DETAILS_FIELD = "bcc_integrationsdetails";
 
         public void Execute(IServiceProvider serviceProvider)
         {
@@ -86,6 +93,40 @@ namespace BCCGULF.Plugins
                     tracingService.Trace("PostImage not found. Ensure plugin is registered with PostImage.");
                     return;
                 }
+
+                Entity target = context.InputParameters.Contains("Target")
+                    ? context.InputParameters["Target"] as Entity
+                    : null;
+
+                bool requestProceedChangedToYes =
+                    target != null &&
+                    target.Contains(REQUEST_TO_PROCEED_FIELD) &&
+                    target.GetAttributeValue<bool>(REQUEST_TO_PROCEED_FIELD) &&
+                    !preImage.GetAttributeValue<bool>(REQUEST_TO_PROCEED_FIELD);
+
+                if (requestProceedChangedToYes)
+                {
+                    tracingService.Trace(
+                        "{0} changed to Yes. Calling Request_Proceed API.",
+                        REQUEST_TO_PROCEED_FIELD);
+                    CallRequestProceedApi(service, tracingService, postImage, "request_to_proceed");
+                    CallRequestProceedApi(service, tracingService, postImage, "approved_by_recruiter");
+                    CallRequestProceedApi(service, tracingService, postImage, "accepted_by_employer");
+                    return;
+                }
+
+                bool entryPermitApplicationUploaded =
+                    IsNewFileUploaded(preImage, postImage, ENTRY_PERMIT_APPLICATION_FILE_FIELD);
+                bool ereceiptUploaded =
+                    IsNewFileUploaded(preImage, postImage, ERECEIPT_FILE_FIELD);
+
+                if (entryPermitApplicationUploaded || ereceiptUploaded)
+                {
+                    tracingService.Trace(
+                        "Entry permit application file upload detected. Calling entry-permit-application API.");
+                    CallEntryPermitApplicationApi(postImage, preImage, service, tracingService);
+                }
+
                 string[] ColumnsNames = new string[] { JobOffer.JobOffer_, JobOffer.EmployeeContract, JobOffer.VisaFee, JobOffer.MohreLetter };
                 foreach (var FILE_COLUMN_NAME in ColumnsNames)
                 {
@@ -250,6 +291,119 @@ namespace BCCGULF.Plugins
             }
         }
 
+        private bool IsNewFileUploaded(Entity preImage, Entity postImage, string fileAttributeName)
+        {
+            bool fileInPreImage = preImage.Contains(fileAttributeName+"_name") && preImage[fileAttributeName+"_name"] != null;
+            bool fileInPostImage = postImage.Contains(fileAttributeName+"_name") && postImage[fileAttributeName+"_name"] != null;
+            return !fileInPreImage && fileInPostImage;
+        }
+
+        private void CallEntryPermitApplicationApi(
+            Entity postImage,
+            Entity preImage,
+            IOrganizationService service,
+            ITracingService tracingService)
+        {
+            string passportNo = postImage.GetAttributeValue<string>(JobOffer.PassportNo);
+            string applicationNo = postImage.GetAttributeValue<string>(Application_Number);
+
+            if (string.IsNullOrWhiteSpace(passportNo))
+            {
+                throw new InvalidPluginExecutionException(
+                    "Cannot send entry permit application because bcc_passportno is missing.");
+            }
+
+            if (string.IsNullOrWhiteSpace(applicationNo))
+            {
+                throw new InvalidPluginExecutionException(
+                    "Cannot send entry permit application because bcc_jobapplicationnumber is missing.");
+            }
+
+            string applicationFormBase64 = IsNewFileUploaded(preImage, postImage, ENTRY_PERMIT_APPLICATION_FILE_FIELD)?  GetRequiredFileBase64(
+                postImage, ENTRY_PERMIT_APPLICATION_FILE_FIELD, service, tracingService) : null;
+            string ereceiptBase64 = IsNewFileUploaded(preImage, postImage, ERECEIPT_FILE_FIELD)? GetRequiredFileBase64(
+                postImage, ERECEIPT_FILE_FIELD, service, tracingService) : null;
+
+            var request = new EntryPermitApplicationApiRequest
+            {
+                passport_no = passportNo,
+                application_no = applicationNo,
+                application_form_base64 = applicationFormBase64,
+                ereceipt_base64 = ereceiptBase64
+            };
+            string requestJson = SerializeToJson(request);
+            string apiUrl = BASE_API_URL + "entry-permit-application";
+
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("X-API-Key", API_KEY);
+                client.Timeout = TimeSpan.FromSeconds(30);
+
+                tracingService.Trace(
+                    "Sending entry-permit-application API request to {0}. Payload size: {1} characters.",
+                    apiUrl,
+                    requestJson.Length);
+
+                using (var content = new StringContent(requestJson, Encoding.UTF8, "application/json"))
+                using (HttpResponseMessage response = client.PostAsync(apiUrl, content).Result)
+                {
+                    string responseBody = response.Content.ReadAsStringAsync().Result;
+                    tracingService.Trace(
+                        "Entry-permit-application API returned HTTP {0}. Response: {1}",
+                        (int)response.StatusCode,
+                        responseBody);
+                    AppendIntegrationDetails(
+                        service, postImage, apiUrl, response.StatusCode, responseBody, tracingService);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new InvalidPluginExecutionException(
+                            "Entry permit application API failed with HTTP " +
+                            (int)response.StatusCode + ": " + responseBody);
+                    }
+                }
+            }
+        }
+
+        private string GetRequiredFileBase64(
+            Entity postImage,
+            string fileAttributeName,
+            IOrganizationService service,
+            ITracingService tracingService)
+        {
+            if (!postImage.Contains(fileAttributeName) || postImage[fileAttributeName] == null)
+            {
+                throw new InvalidPluginExecutionException(
+                    "Cannot send entry permit application because required file " +
+                    fileAttributeName + " is missing.");
+            }
+
+            var initializeRequest = new InitializeFileBlocksDownloadRequest
+            {
+                Target = new EntityReference(postImage.LogicalName, postImage.Id),
+                FileAttributeName = fileAttributeName
+            };
+
+            var initializeResponse =
+                (InitializeFileBlocksDownloadResponse)service.Execute(initializeRequest);
+            byte[] fileContent = DownloadFileContent(
+                service,
+                initializeResponse.FileContinuationToken,
+                initializeResponse.FileSizeInBytes,
+                tracingService);
+
+            if (fileContent == null || fileContent.Length == 0)
+            {
+                throw new InvalidPluginExecutionException(
+                    "Cannot send entry permit application because required file " +
+                    fileAttributeName + " is empty.");
+            }
+
+            return Convert.ToBase64String(fileContent);
+        }
+
         /// <summary>
         /// Calls the external API to upload the company offer
         /// Dynamically builds payload based on file type
@@ -286,6 +440,8 @@ namespace BCCGULF.Plugins
                     string responseBody = response.Content.ReadAsStringAsync().Result;
                     tracingService.Trace("API Response Status: {0}", response.StatusCode);
                     tracingService.Trace("API Response Body: {0}", responseBody);
+                    AppendIntegrationDetails(
+                        service, postImage, apiUrl, response.StatusCode, responseBody, tracingService);
 
                     if (!response.IsSuccessStatusCode)
                     {
@@ -306,6 +462,200 @@ namespace BCCGULF.Plugins
                     throw;
                 }
             }
+        }
+
+        /// <summary>
+        /// Notifies the external service when a Job Offer is marked to proceed.
+        /// </summary>
+        private void CallRequestProceedApi(
+            IOrganizationService service,
+            ITracingService tracingService,
+            Entity postImage,
+            string status)
+        { string passportNo = postImage.GetAttributeValue<string>(JobOffer.PassportNo);
+            string jobApplicationNumber = postImage.GetAttributeValue<string>(JOB_APPLICATION_NUMBER_FIELD);
+
+            if (string.IsNullOrWhiteSpace(passportNo))
+            {
+                throw new InvalidOperationException(
+                    "Cannot send request-to-proceed webhook because bcc_passportno is missing.");
+            }
+
+            if (string.IsNullOrWhiteSpace(jobApplicationNumber))
+            {
+                throw new InvalidOperationException(
+                    "Cannot send request-to-proceed webhook because bcc_jobapplicationnumber is missing.");
+            }
+
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("X-API-Key", API_KEY);
+                client.Timeout = TimeSpan.FromSeconds(30);
+
+                string apiUrl = BASE_API_URL + "request-to-proceed";
+                string requestJson = SerializeToJson(new RequestToProceedWebhookApiRequest
+                {
+                    passport_no = passportNo,
+                    status = status,
+                    status_date = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture),
+                    bcc_reference = jobApplicationNumber
+                });
+
+                tracingService.Trace("Sending Request_Proceed API request to {0}.", apiUrl);
+
+                using (var content = new StringContent(requestJson, Encoding.UTF8, "application/json"))
+                using (HttpResponseMessage response = client.PostAsync(apiUrl, content).Result)
+                {
+                    tracingService.Trace(
+                        "Request_Proceed API returned HTTP {0}.",
+                        (int)response.StatusCode);
+
+                    string responseBody = response.Content.ReadAsStringAsync().Result;
+                    tracingService.Trace("Request_Proceed API response: {0}", responseBody);
+                    AppendIntegrationDetails(
+                        service, postImage, apiUrl, response.StatusCode, responseBody, tracingService);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new InvalidOperationException(
+                            "Request_Proceed API failed with HTTP " +
+                            (int)response.StatusCode + ": " + responseBody);
+                    }
+
+                    RequestProceedApiResponse apiResponse;
+                    using (var responseStream = new MemoryStream(Encoding.UTF8.GetBytes(responseBody)))
+                    {
+                        var serializer = new DataContractJsonSerializer(typeof(RequestProceedApiResponse));
+                        apiResponse = (RequestProceedApiResponse)serializer.ReadObject(responseStream);
+                    }
+
+                    if (!apiResponse.state_changed)
+                    {
+                        throw new InvalidPluginExecutionException(
+                            "The external service did not change the Job Offer state: " + responseBody);
+                    }
+
+                    tracingService.Trace(
+                        "Request_Proceed API changed Job Offer state to {0}.",
+                        apiResponse.job_offer_state);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sends the request-to-proceed status when a Job Offer is marked to proceed.
+        /// </summary>
+        private void CallRequestToProceedWebhookApi(
+            Entity postImage,
+            ITracingService tracingService,
+            IOrganizationService service)
+        {
+            string passportNo = postImage.GetAttributeValue<string>(JobOffer.PassportNo);
+            string jobApplicationNumber = postImage.GetAttributeValue<string>(JOB_APPLICATION_NUMBER_FIELD);
+
+            if (string.IsNullOrWhiteSpace(passportNo))
+            {
+                throw new InvalidOperationException(
+                    "Cannot send request-to-proceed webhook because bcc_passportno is missing.");
+            }
+
+            if (string.IsNullOrWhiteSpace(jobApplicationNumber))
+            {
+                throw new InvalidOperationException(
+                    "Cannot send request-to-proceed webhook because bcc_jobapplicationnumber is missing.");
+            }
+
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("X-API-Key", API_KEY);
+                client.Timeout = TimeSpan.FromSeconds(30);
+
+                string apiUrl = BASE_API_URL + "request-to-proceed";
+                string requestJson = SerializeToJson(new RequestToProceedWebhookApiRequest
+                {
+                    passport_no = passportNo,
+                    status = "accepted_by_employer",
+                    status_date = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture),
+                    bcc_reference = jobApplicationNumber
+                });
+
+                tracingService.Trace("Sending request-to-proceed webhook to {0}.", apiUrl);
+
+                using (var content = new StringContent(requestJson, Encoding.UTF8, "application/json"))
+                using (HttpResponseMessage response = client.PostAsync(apiUrl, content).Result)
+                {
+                    tracingService.Trace(
+                        "Request-to-proceed webhook returned HTTP {0}.",
+                        (int)response.StatusCode);
+
+                    string responseBody = response.Content.ReadAsStringAsync().Result;
+                    tracingService.Trace("Request-to-proceed webhook response: {0}", responseBody);
+                    AppendIntegrationDetails(
+                        service, postImage, apiUrl, response.StatusCode, responseBody, tracingService);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new InvalidOperationException(
+                            "Request-to-proceed webhook failed with HTTP " +
+                            (int)response.StatusCode + ": " + responseBody);
+                    }
+
+                    RequestToProceedWebhookApiResponse apiResponse;
+                    using (var responseStream = new MemoryStream(Encoding.UTF8.GetBytes(responseBody)))
+                    {
+                        var serializer = new DataContractJsonSerializer(typeof(RequestToProceedWebhookApiResponse));
+                        apiResponse = (RequestToProceedWebhookApiResponse)serializer.ReadObject(responseStream);
+                    }
+
+                    if (!apiResponse.success)
+                    {
+                        throw new InvalidPluginExecutionException(
+                            "Request-to-proceed was not accepted by the external service: " + responseBody);
+                    }
+
+                    tracingService.Trace("Request-to-proceed webhook succeeded.");
+                }
+            }
+        }
+
+        private void AppendIntegrationDetails(
+            IOrganizationService service,
+            Entity postImage,
+            string apiUrl,
+            HttpStatusCode statusCode,
+            string responseBody,
+            ITracingService tracingService)
+        {
+            Entity currentJobOffer = service.Retrieve(
+                postImage.LogicalName,
+                postImage.Id,
+                new ColumnSet(INTEGRATION_DETAILS_FIELD));
+            string existingDetails = currentJobOffer.GetAttributeValue<string>(INTEGRATION_DETAILS_FIELD);
+            string lineBreak = Environment.NewLine;
+            string entry = string.Format(
+                CultureInfo.InvariantCulture,
+                "[{0}] API URL: {1}{2}HTTP Status: {3} ({4}){2}Response: {5}",
+                DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+                apiUrl,
+                lineBreak,
+                (int)statusCode,
+                statusCode,
+                responseBody);
+
+            Entity update = new Entity(postImage.LogicalName, postImage.Id);
+            update[INTEGRATION_DETAILS_FIELD] = string.IsNullOrEmpty(existingDetails)
+                ? entry
+                : existingDetails + lineBreak + lineBreak + entry;
+            service.Update(update);
+
+            tracingService.Trace(
+                "Appended API response for {0} to {1}.",
+                apiUrl,
+                INTEGRATION_DETAILS_FIELD);
         }
 
         /// <summary>
@@ -593,6 +943,63 @@ namespace BCCGULF.Plugins
 
             [DataMember]
             public string filename { get; set; }
+        }
+
+        [DataContract]
+        public class RequestProceedApiRequest
+        {
+            [DataMember(Name = "requesttoprocced")]
+            public bool requesttoprocced { get; set; }
+        }
+
+        [DataContract]
+        public class RequestProceedApiResponse
+        {
+            [DataMember(Name = "job_offer_state")]
+            public string job_offer_state { get; set; }
+
+            [DataMember(Name = "state_changed", IsRequired = true)]
+            public bool state_changed { get; set; }
+        }
+
+        [DataContract]
+        public class RequestToProceedWebhookApiRequest
+        {
+            [DataMember(Name = "passport_no")]
+            public string passport_no { get; set; }
+
+            [DataMember(Name = "status")]
+            public string status { get; set; }
+
+            [DataMember(Name = "status_date")]
+            public string status_date { get; set; }
+
+            [DataMember(Name = "bcc_reference")]
+            public string bcc_reference { get; set; }
+
+        }
+
+        [DataContract]
+        public class RequestToProceedWebhookApiResponse
+        {
+            [DataMember(Name = "success", IsRequired = true)]
+            public bool success { get; set; }
+        }
+
+        [DataContract]
+        public class EntryPermitApplicationApiRequest
+        {
+            [DataMember(Name = "passport_no")]
+            public string passport_no { get; set; }
+
+            [DataMember(Name = "application_no")]
+            public string application_no { get; set; }
+
+            [DataMember(Name = "application_form_base64")]
+            public string application_form_base64 { get; set; }
+
+            [DataMember(Name = "ereceipt_base64")]
+            public string ereceipt_base64 { get; set; }
         }
     }
 }

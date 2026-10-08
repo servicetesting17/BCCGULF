@@ -41,11 +41,11 @@ namespace BCCGULF.Plugins
                 var bookableResourceRef = target.GetAttributeValue<EntityReference>(Evaluation.BookableResource);
                 tracingService.Trace("BookableResource: {0}", bookableResourceRef.Id);
 
-                // ── Step 2: Retrieve Bookable Resource with Type, Department, and Division ──
+                // ── Step 2: Retrieve Bookable Resource with Type and Department ──
                 var bookableResource = service.Retrieve(
                     BookableResource.EntityName,
                     bookableResourceRef.Id,
-                    new ColumnSet(BookableResource.Type, BookableResource.Department, BookableResource.Division, BookableResource.PrimaryName));
+                    new ColumnSet(BookableResource.Type, BookableResource.Department, BookableResource.PrimaryName));
                 string bookableResourceName = bookableResource.Contains(BookableResource.PrimaryName)
                    ? bookableResource.GetAttributeValue<string>(BookableResource.PrimaryName)
                    : "";
@@ -101,7 +101,7 @@ namespace BCCGULF.Plugins
                 tracingService.Trace("No duplicate Evaluation record found. Proceeding with creation.");
 
 
-                // ── Step 3: Validate that Type, Department, and Division are set ──
+                // ── Step 3: Validate that Type and Department are set ──
                 if (!bookableResource.Contains(BookableResource.Type) || bookableResource[BookableResource.Type] == null)
                 {
                     tracingService.Trace("Type is not set on the Bookable Resource. Exiting.");
@@ -114,20 +114,13 @@ namespace BCCGULF.Plugins
                     return;
                 }
 
-                if (!bookableResource.Contains(BookableResource.Division) || bookableResource[BookableResource.Division] == null)
-                {
-                    tracingService.Trace("Division is not set on the Bookable Resource. Exiting.");
-                    return;
-                }
-
-                // ── Step 4: Extract Type, Department, and Division values ──
+                // ── Step 4: Extract Type and Department values ──
                 int typeValue = bookableResource.GetAttributeValue<OptionSetValue>(BookableResource.Type).Value;
                 int departmentValue = bookableResource.GetAttributeValue<OptionSetValue>(BookableResource.Department).Value;
-                int divisionValue = bookableResource.GetAttributeValue<OptionSetValue>(BookableResource.Division).Value;
 
-                tracingService.Trace("Type: {0}, Department: {1}, Division: {2}", typeValue, departmentValue, divisionValue);
+                tracingService.Trace("Type: {0}, Department: {1}", typeValue, departmentValue);
 
-                // ── Step 5: Fetch Evaluation Matrix items matching Type, Department, and Division ──
+                // ── Step 5: Fetch Evaluation Matrix items matching Type and Department ──
                 string fetchXml = string.Format(@"
                     <fetch version='1.0' output-format='xml-platform' mapping='logical' distinct='false'>
                       <entity name='{0}'>
@@ -136,14 +129,11 @@ namespace BCCGULF.Plugins
                         <attribute name='{3}' />
                         <attribute name='{4}' />
                         <attribute name='{5}' />
-  <attribute name='{6}' />
-<attribute name='{7}' />
-
+                        <attribute name='{6}' />
                         <filter type='and'>
                           <condition attribute='statecode' operator='eq' value='0' />
-                          <condition attribute='{2}' operator='eq' value='{8}' />
-                          <condition attribute='{3}' operator='eq' value='{9}' />
-                          <condition attribute='{4}' operator='eq' value='{10}' />
+                          <condition attribute='{2}' operator='eq' value='{7}' />
+                          <condition attribute='{3}' operator='eq' value='{8}' />
                         </filter>
                       </entity>
                     </fetch>",
@@ -151,13 +141,11 @@ namespace BCCGULF.Plugins
                     EvaluationMatrix.PrimaryKey,       // {1} bcc_evaluationmatrixid
                     EvaluationMatrix.ApplicableTo,     // {2} bcc_applicableto
                     EvaluationMatrix.Department,       // {3} bcc_department
-                    EvaluationMatrix.Division,         // {4} new_division
-                    EvaluationMatrix.Weightage,        // {5} bcc_weightage
-                    EvaluationMatrix.Remarks,          // {6} bcc_remarks
-                    EvaluationMatrix.PrimaryName,     // {7} bcc_name
-                    typeValue,                         // {8} type option value
-                    departmentValue,                   // {9} department option value
-                    divisionValue);                    // {10} division option value
+                    EvaluationMatrix.Weightage,        // {4} bcc_weightage
+                    EvaluationMatrix.Remarks,          // {5} bcc_remarks
+                    EvaluationMatrix.PrimaryName,      // {6} bcc_name
+                    typeValue,                         // {7} type option value
+                    departmentValue);                  // {8} department option value
 
                 var evaluationMatrices = service.RetrieveMultiple(new FetchExpression(fetchXml));
                 tracingService.Trace("Evaluation Matrix items found: {0}", evaluationMatrices.Entities.Count);
