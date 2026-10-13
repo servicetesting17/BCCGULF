@@ -110,7 +110,7 @@ namespace BCCGULF.CustomAPI
             SetIfNotEmpty(entity, "bcc_visano", model.bcc_visano, tracingService);
             SetIfNotEmpty(entity, "new_address", model.new_address, tracingService);
             SetIfNotEmpty(entity, "new_contactid", model.new_contactid, tracingService);
-            SetIfNotEmpty(entity, "new_givennames", model.bcc_firstname, tracingService);
+            SetIfNotEmpty(entity, "mr airTHE SWICT ", model.bcc_firstname, tracingService);
             SetIfNotEmpty(entity, "bcc_firstname", model.bcc_firstname, tracingService);
 
             // 🔹 NUMBERS / MONEY

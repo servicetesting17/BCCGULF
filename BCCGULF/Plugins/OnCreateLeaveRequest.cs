@@ -93,6 +93,20 @@ namespace BCCGULF.Plugins
                 tracingService.Trace("Available Balance: {0}, Requested Days: {1}", availableBalance, leaveDays);
 
                 // ── Step 5: Validate — if requested days exceed available balance, throw error ──
+                // For Annual Leave, months still to be credited from Projected Leaves count towards the balance
+                if (leaveDays > availableBalance)
+                {
+                    DateTime? leaveEndTime = target.GetAttributeValue<DateTime?>(LeaveRequest.EndTime);
+                    decimal projectedBalance = leaveEndTime.HasValue
+                        ? GetProjectedAnnualLeaveBalance(service, bookableResourceRef, leaveTypeRef, leaveEndTime.Value, tracingService)
+                        : 0m;
+                    if (projectedBalance > 0)
+                    {
+                        availableBalance += projectedBalance;
+                        tracingService.Trace("Projected Annual Leave balance added: {0}. Available incl. projected: {1}", projectedBalance, availableBalance);
+                    }
+                }
+
                 if (leaveDays > availableBalance)
                 {
                     tracingService.Trace("Insufficient balance. Available: {0}, Requested: {1}", availableBalance, leaveDays);
@@ -270,6 +284,62 @@ namespace BCCGULF.Plugins
                 throw new InvalidPluginExecutionException(
                     "An error occurred in OnCreateLeaveRequest plugin: " + ex.Message, ex);
             }
+        }
+
+        /// <summary>
+        /// Returns the Annual Leave days still to be credited from the resource's Projected Leaves,
+        /// i.e. active projected months after the current month and up to the leave end month × the monthly accrual rate.
+        /// Returns 0 when the leave type is not Annual Leave.
+        /// </summary>
+        private static decimal GetProjectedAnnualLeaveBalance(IOrganizationService service, EntityReference bookableResourceRef,
+            EntityReference leaveTypeRef, DateTime leaveEndTime, ITracingService tracingService)
+        {
+            string leaveTypeName = leaveTypeRef.Name;
+            if (string.IsNullOrEmpty(leaveTypeName))
+            {
+                var leaveTypeEntity = service.Retrieve(LeaveType.EntityName, leaveTypeRef.Id, new ColumnSet(LeaveType.PrimaryName));
+                leaveTypeName = leaveTypeEntity.GetAttributeValue<string>(LeaveType.PrimaryName) ?? string.Empty;
+            }
+
+            if (leaveTypeName.IndexOf("Annual Leave", StringComparison.OrdinalIgnoreCase) < 0)
+                return 0m;
+
+            // Same monthly accrual rate as GenerateLeaveBalance
+            var resource = service.Retrieve(BookableResource.EntityName, bookableResourceRef.Id, new ColumnSet(BookableResource.Type));
+            var typeValue = resource.GetAttributeValue<OptionSetValue>(BookableResource.Type);
+            decimal monthlyRate = typeValue != null && typeValue.Value == 100000001 ? 1.83m : 2.5m;
+
+            var query = new QueryExpression(ProjectedLeaves.EntityName)
+            {
+                ColumnSet = new ColumnSet(ProjectedLeaves.Month, ProjectedLeaves.Year)
+            };
+            query.Criteria.AddCondition(ProjectedLeaves.Status, ConditionOperator.Equal, (int)ProjectedLeaves.Status_OptionSet.Active);
+            query.Criteria.AddCondition(ProjectedLeaves.BookableResource, ConditionOperator.Equal, bookableResourceRef.Id);
+
+            var projectedLeaves = service.RetrieveMultiple(query);
+
+            var today = DateTime.UtcNow;
+            int currentPeriod = today.Year * 12 + today.Month;
+            int endPeriod = leaveEndTime.Year * 12 + leaveEndTime.Month;
+            int futureMonths = 0;
+
+            foreach (var projectedLeave in projectedLeaves.Entities)
+            {
+                int month = projectedLeave.GetAttributeValue<int?>(ProjectedLeaves.Month) ?? 0;
+                int year = projectedLeave.GetAttributeValue<int?>(ProjectedLeaves.Year) ?? 0;
+                if (month == 0 || year == 0)
+                    continue;
+
+                int period = year * 12 + month;
+                if (period > currentPeriod && period <= endPeriod)
+                    futureMonths++;
+            }
+
+            decimal projectedBalance = futureMonths * monthlyRate;
+            tracingService.Trace("Projected Leaves - Future months up to {0}: {1}, Monthly rate: {2}, Projected balance: {3}",
+                leaveEndTime.ToString("yyyy-MM"), futureMonths, monthlyRate, projectedBalance);
+
+            return projectedBalance;
         }
     }
 }

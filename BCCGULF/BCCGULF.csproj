@@ -120,6 +120,7 @@
     <Compile Include="Constants\LeaveProvision.cs" />
     <Compile Include="Constants\LeaveRequest.cs" />
     <Compile Include="Constants\LeaveType.cs" />
+    <Compile Include="Constants\ProjectedLeaves.cs" />
     <Compile Include="Constants\Escalation.cs" />
     <Compile Include="Constants\Roster.cs" />
     <Compile Include="Constants\Payslip.cs" />

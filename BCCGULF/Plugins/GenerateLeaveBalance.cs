@@ -106,6 +106,8 @@ namespace BCCGULF.Plugins
                 }
 
                 // ── Step 4: Create a Leave Balance record for each Leave Type ──
+                bool hasAnnualLeave = false;
+
                 foreach (var leaveType in leaveTypes.Entities)
                 {
                     string leaveTypeName = leaveType.GetAttributeValue<string>(LeaveType.PrimaryName) ?? "Leave";
@@ -117,6 +119,7 @@ namespace BCCGULF.Plugins
 
                     // ── Pro-rate Annual Leave based on Joining Date ──
                     bool isAnnualLeave = leaveTypeName.IndexOf(AnnualLeaveKeyword, StringComparison.OrdinalIgnoreCase) >= 0;
+                    hasAnnualLeave |= isAnnualLeave;
 
                     if (isAnnualLeave && joiningDate != DateTime.MinValue)
                     {
@@ -143,6 +146,13 @@ namespace BCCGULF.Plugins
                     tracingService.Trace("Leave Balance created for: {0}", leaveTypeName);
                 }
 
+                // ── Step 5: Create Projected Leaves (Annual Leave) for 1 year from Joining Date ──
+                if (hasAnnualLeave && joiningDate != DateTime.MinValue)
+                {
+                    string resourceName = bookableResource.GetAttributeValue<string>(BookableResource.PrimaryName);
+                    CreateProjectedLeaves(service, bookableResource.Id, resourceName, joiningDate, tracingService);
+                }
+
                 tracingService.Trace("GenerateLeaveBalance: Plugin execution completed successfully.");
             }
             catch (Exception ex)
@@ -151,6 +161,37 @@ namespace BCCGULF.Plugins
                 throw new InvalidPluginExecutionException(
                     "An error occurred in GenerateLeaveBalance plugin: " + ex.Message, ex);
             }
+        }
+
+        /// <summary>
+        /// Creates 12 monthly Projected Leave records for the resource, covering one year from the joining date.
+        /// Joined on or before the 15th: projection starts from the joining month.
+        /// Joined after the 15th: projection starts from the following month.
+        /// </summary>
+        private static void CreateProjectedLeaves(IOrganizationService service, Guid bookableResourceId, string resourceName,
+            DateTime joiningDate, ITracingService tracingService)
+        {
+            var startMonth = new DateTime(joiningDate.Year, joiningDate.Month, 1);
+            if (joiningDate.Day > 15)
+                startMonth = startMonth.AddMonths(1);
+
+            tracingService.Trace("Creating Projected Leaves starting from: {0}", startMonth.ToString("yyyy-MM"));
+
+            for (int i = 0; i < 12; i++)
+            {
+                var period = startMonth.AddMonths(i);
+
+                var projectedLeave = new Entity(ProjectedLeaves.EntityName);
+                projectedLeave[ProjectedLeaves.PrimaryName] = string.Format("{0} - {1}",
+                    resourceName ?? "Annual Leave", period.ToString("MMMM yyyy"));
+                projectedLeave[ProjectedLeaves.BookableResource] = new EntityReference(BookableResource.EntityName, bookableResourceId);
+                projectedLeave[ProjectedLeaves.Month] = period.Month;
+                projectedLeave[ProjectedLeaves.MonthOfYear] = new OptionSetValue(period.Month);
+                projectedLeave[ProjectedLeaves.Year] = period.Year;
+                service.Create(projectedLeave);
+            }
+
+            tracingService.Trace("Projected Leaves created: 12 months from {0}", startMonth.ToString("yyyy-MM"));
         }
 
         /// <summary>
