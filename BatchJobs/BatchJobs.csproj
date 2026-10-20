@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <RootNamespace>BCCGULF.BatchJobs</RootNamespace>
+    <AssemblyName>BatchJobs</AssemblyName>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.27" />
+  </ItemGroup>
+
+  <!-- Shared with the plugin assembly so batch jobs run exactly the same logic -->
+  <ItemGroup>
+    <Compile Include="..\BCCGULF\Common\Common.cs" Link="Shared\Common.cs" />
+    <Compile Include="..\BCCGULF\Constants\BookableResource.cs" Link="Shared\Constants\BookableResource.cs" />
+    <Compile Include="..\BCCGULF\Constants\LeaveBalance.cs" Link="Shared\Constants\LeaveBalance.cs" />
+    <Compile Include="..\BCCGULF\Constants\LeaveType.cs" Link="Shared\Constants\LeaveType.cs" />
+    <Compile Include="..\BCCGULF\Constants\ProjectedLeaves.cs" Link="Shared\Constants\ProjectedLeaves.cs" />
+  </ItemGroup>
+
+</Project>

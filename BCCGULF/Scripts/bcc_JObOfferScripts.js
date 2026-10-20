@@ -3,12 +3,22 @@ var BCCJobOffer = BCCJobOffer || {};
 BCCJobOffer.Form = {
     config: {
         airTicketField: "bcc_airticket",
-        airTicketAttachmentField: "bcc_attatchairticket"
+        airTicketAttachmentField: "bcc_attatchairticket",
+        subStageStatusField: "bcc_substagestatus",
+        biometricStages: ["Biometric Appointment", "Biometric Done"],
+        biometricDoneStage: "Biometric Done",
+        biometricSubStageStatusValue: 755700000,
+        biometricDoneStatusValue: 755700019
     },
 
     onLoad: function (executionContext) {
         var formContext = executionContext.getFormContext();
         BCCJobOffer.Form.setBpfForStatus(formContext);
+
+        if (formContext.data && formContext.data.process && !BCCJobOffer.Form.__stageChangeHandlerAdded) {
+            formContext.data.process.addOnStageChange(BCCJobOffer.Form.onStageChange);
+            BCCJobOffer.Form.__stageChangeHandlerAdded = true;
+        }
 
         var airTicketAttr = formContext.getAttribute(BCCJobOffer.Form.config.airTicketField);
 
@@ -66,6 +76,41 @@ BCCJobOffer.Form = {
             );
         }).catch(function (error) {
             console.error("BCCJobOffer.Form.setBpfForStatus - " + error.message);
+        });
+    },
+
+    /**
+     * BPF stage change: on Biometric Appointment / Biometric Done set the sub stage status,
+     * and on Biometric Done also set the status reason, then save.
+     */
+    onStageChange: function (executionContext) {
+        var formContext = executionContext.getFormContext();
+        var config = BCCJobOffer.Form.config;
+        var stage = executionContext.getEventArgs().getStage() || formContext.data.process.getActiveStage();
+        var stageName = stage ? stage.getName() : null;
+
+        if (config.biometricStages.indexOf(stageName) === -1) {
+            return;
+        }
+
+        var subStageStatusAttr = formContext.getAttribute(config.subStageStatusField);
+        if (!subStageStatusAttr) {
+            console.error("BCCJobOffer.Form.onStageChange - field not found: " + config.subStageStatusField);
+            return;
+        }
+        subStageStatusAttr.setValue(config.biometricSubStageStatusValue);
+
+        if (stageName === config.biometricDoneStage) {
+            var statusAttr = formContext.getAttribute("statuscode");
+            if (!statusAttr) {
+                console.error("BCCJobOffer.Form.onStageChange - field not found: statuscode");
+                return;
+            }
+            statusAttr.setValue(config.biometricDoneStatusValue);
+        }
+
+        formContext.data.save().then(null, function (error) {
+            console.error("BCCJobOffer.Form.onStageChange - save failed: " + error.message);
         });
     },
 

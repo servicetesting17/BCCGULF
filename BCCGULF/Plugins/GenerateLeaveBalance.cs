@@ -52,6 +52,8 @@ namespace BCCGULF.Plugins
                 int typeValue = bookableResource.GetAttributeValue<OptionSetValue>(BookableResource.Type).Value;
                 tracingService.Trace("Type value: {0}", typeValue);
 
+                decimal monthlyAnnualLeaveDays = Common.Common.GetMonthlyAnnualLeaveDays(typeValue);
+
                 // ── Step 2b: Get Joining Date (used for Annual Leave pro-ration) ──
                 // Check both JoiningDate (bcc_joiningdate) and DateofJoining (new_dateofjoining)
                 DateTime joiningDate = DateTime.MinValue;
@@ -124,7 +126,7 @@ namespace BCCGULF.Plugins
                     if (isAnnualLeave && joiningDate != DateTime.MinValue)
                     {
                         if (joiningDate.Day <= 15)
-                            balanceDays = typeValue == 100000001 ? 1.83m : 2.5m;
+                            balanceDays = monthlyAnnualLeaveDays;
                         else
                             balanceDays = 0;
                     }
@@ -149,8 +151,12 @@ namespace BCCGULF.Plugins
                 // ── Step 5: Create Projected Leaves (Annual Leave) for 1 year from Joining Date ──
                 if (hasAnnualLeave && joiningDate != DateTime.MinValue)
                 {
-                    string resourceName = bookableResource.GetAttributeValue<string>(BookableResource.PrimaryName);
-                    CreateProjectedLeaves(service, bookableResource.Id, resourceName, joiningDate, tracingService);
+                    var resourceRef = new EntityReference(BookableResource.EntityName, bookableResource.Id)
+                    {
+                        Name = bookableResource.GetAttributeValue<string>(BookableResource.PrimaryName)
+                    };
+                    Common.Common.CreateProjectedLeaves(service, resourceRef, Common.Common.GetProjectionStartMonth(joiningDate),
+                        monthlyAnnualLeaveDays, tracingService);
                 }
 
                 tracingService.Trace("GenerateLeaveBalance: Plugin execution completed successfully.");
@@ -161,37 +167,6 @@ namespace BCCGULF.Plugins
                 throw new InvalidPluginExecutionException(
                     "An error occurred in GenerateLeaveBalance plugin: " + ex.Message, ex);
             }
-        }
-
-        /// <summary>
-        /// Creates 12 monthly Projected Leave records for the resource, covering one year from the joining date.
-        /// Joined on or before the 15th: projection starts from the joining month.
-        /// Joined after the 15th: projection starts from the following month.
-        /// </summary>
-        private static void CreateProjectedLeaves(IOrganizationService service, Guid bookableResourceId, string resourceName,
-            DateTime joiningDate, ITracingService tracingService)
-        {
-            var startMonth = new DateTime(joiningDate.Year, joiningDate.Month, 1);
-            if (joiningDate.Day > 15)
-                startMonth = startMonth.AddMonths(1);
-
-            tracingService.Trace("Creating Projected Leaves starting from: {0}", startMonth.ToString("yyyy-MM"));
-
-            for (int i = 0; i < 12; i++)
-            {
-                var period = startMonth.AddMonths(i);
-
-                var projectedLeave = new Entity(ProjectedLeaves.EntityName);
-                projectedLeave[ProjectedLeaves.PrimaryName] = string.Format("{0} - {1}",
-                    resourceName ?? "Annual Leave", period.ToString("MMMM yyyy"));
-                projectedLeave[ProjectedLeaves.BookableResource] = new EntityReference(BookableResource.EntityName, bookableResourceId);
-                projectedLeave[ProjectedLeaves.Month] = period.Month;
-                projectedLeave[ProjectedLeaves.MonthOfYear] = new OptionSetValue(period.Month);
-                projectedLeave[ProjectedLeaves.Year] = period.Year;
-                service.Create(projectedLeave);
-            }
-
-            tracingService.Trace("Projected Leaves created: 12 months from {0}", startMonth.ToString("yyyy-MM"));
         }
 
         /// <summary>

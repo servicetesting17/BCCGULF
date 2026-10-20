@@ -30,6 +30,12 @@ LeaveRequest.Form = {
         holidayEndDateField: "bcc_holidayenddate",
         attachmentRequiredField: "bcc_attachmentrequired",
         attachmentField: "bcc_attachment",
+        projectLeavesField: "bcc_projectedleaves",       // Leave Request field showing projected Annual Leave days
+        projectedLeavesLogicalName: "bcc_projectedleaves",
+        projectedLeavesResourceField: "_bcc_bookableresourceid_value",
+        projectedLeavesMonthField: "bcc_month",
+        projectedLeavesYearField: "bcc_year",
+        projectedLeavesDaysField: "bcc_days",
         staffResourceTypeValue: 100000001  // option-set value of "Staff" in the new_type field — update if different
     },
 
@@ -141,8 +147,74 @@ LeaveRequest.Form = {
         try {
             var formContext = executionContext.getFormContext();
             LeaveRequest.Form.calculateNumberOfDays(formContext);
+            LeaveRequest.Form.calculateProjectedLeaves(formContext);
         } catch (error) {
             console.error("Error on Date Field Change: " + error.message);
+        }
+    },
+
+    /**
+     * Show the projected Annual Leave days from the month after today up to the leave end month.
+     * Sums Days on the resource's active Projected Leaves records (same rule as OnCreateLeaveRequest plugin).
+     */
+    calculateProjectedLeaves: function (formContext) {
+        try {
+            var config = LeaveRequest.Form.config;
+            var projectLeavesAttr = formContext.getAttribute(config.projectLeavesField);
+            if (!projectLeavesAttr) return;
+
+            var resourceAttr = formContext.getAttribute(config.resourceField);
+            var leaveTypeAttr = formContext.getAttribute(config.leaveTypeField);
+            var endAttr = formContext.getAttribute(config.endTimeField);
+
+            var resourceLookup = resourceAttr ? resourceAttr.getValue() : null;
+            var leaveTypeLookup = leaveTypeAttr ? leaveTypeAttr.getValue() : null;
+            var endValue = endAttr ? endAttr.getValue() : null;
+            var leaveTypeName = leaveTypeLookup && leaveTypeLookup.length > 0 ? (leaveTypeLookup[0].name || "") : "";
+
+            // Projected Leaves only apply to Annual Leave
+            if (!resourceLookup || resourceLookup.length === 0 || !endValue ||
+                leaveTypeName.toLowerCase().indexOf("annual leave") === -1) {
+                projectLeavesAttr.setValue(null);
+                return;
+            }
+
+            var resourceId = LeaveRequest.Form.normalizeGuid(resourceLookup[0].id);
+            var today = new Date();
+            var endDate = new Date(endValue);
+            var currentYear = today.getFullYear();
+            var currentMonth = today.getMonth() + 1;
+            var endYear = endDate.getFullYear();
+            var endMonth = endDate.getMonth() + 1;
+
+            // Months after the current month and up to (including) the leave end month
+            var filter = [
+                config.projectedLeavesResourceField + " eq " + resourceId,
+                "statecode eq 0",
+                "(" + config.projectedLeavesYearField + " gt " + currentYear +
+                " or (" + config.projectedLeavesYearField + " eq " + currentYear + " and " + config.projectedLeavesMonthField + " gt " + currentMonth + "))",
+                "(" + config.projectedLeavesYearField + " lt " + endYear +
+                " or (" + config.projectedLeavesYearField + " eq " + endYear + " and " + config.projectedLeavesMonthField + " le " + endMonth + "))"
+            ].join(" and ");
+
+            var options = "?$select=" + config.projectedLeavesDaysField + "&$filter=" + filter;
+
+            Xrm.WebApi.retrieveMultipleRecords(config.projectedLeavesLogicalName, options)
+                .then(function (result) {
+                    var projectedDays = 0;
+                    result.entities.forEach(function (projectedLeave) {
+                        projectedDays += projectedLeave[config.projectedLeavesDaysField] || 0;
+                    });
+
+                    projectLeavesAttr.setValue(Math.round(projectedDays * 100) / 100);
+                    console.log("Projected leaves up to " + endYear + "-" + endMonth + ": " + projectedDays);
+                })
+                .catch(function (error) {
+                    console.error("Error fetching projected leaves: " + error.message);
+                    projectLeavesAttr.setValue(null);
+                });
+        } catch (error) {
+            console.error("Error in calculateProjectedLeaves: " + error.message);
         }
     },
 
@@ -352,6 +424,7 @@ LeaveRequest.Form = {
             if (!resourceLookup || resourceLookup.length === 0) {
                 LeaveRequest.Form.clearLeaveTypeFilter(formContext);
                 LeaveRequest.Form.clearLeaveBalance(formContext);
+                LeaveRequest.Form.calculateProjectedLeaves(formContext);
                 return;
             }
 
@@ -360,6 +433,7 @@ LeaveRequest.Form = {
             // Clear existing leave type value only when user changes resource
             formContext.getAttribute(LeaveRequest.Form.config.leaveTypeField).setValue(null);
             LeaveRequest.Form.clearLeaveBalance(formContext);
+            LeaveRequest.Form.calculateProjectedLeaves(formContext);
 
             LeaveRequest.Form.fetchResourceById(resourceId, formContext);
         } catch (error) {
@@ -374,6 +448,7 @@ LeaveRequest.Form = {
         try {
             var formContext = executionContext.getFormContext();
             LeaveRequest.Form.loadLeaveBalance(formContext);
+            LeaveRequest.Form.calculateProjectedLeaves(formContext);
 
             // Check if leave type has attachment required
             var leaveTypeAttr = formContext.getAttribute(LeaveRequest.Form.config.leaveTypeField);

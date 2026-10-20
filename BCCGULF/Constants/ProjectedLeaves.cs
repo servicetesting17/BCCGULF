@@ -22,6 +22,8 @@ namespace BCCGULF.Constants
         public const string PrimaryName = "bcc_name";
         /// <summary>Type: Lookup, RequiredLevel: None, Targets: bookableresource</summary>
         public const string BookableResource = "bcc_bookableresourceid";
+        /// <summary>Type: Decimal, RequiredLevel: None, MinValue: 1.83, MaxValue: 2.5</summary>
+        public const string Days = "bcc_days";
         /// <summary>Type: Integer, RequiredLevel: None, MinValue: 1, MaxValue: 12</summary>
         public const string Month = "bcc_month";
         /// <summary>Type: Picklist, RequiredLevel: None, DisplayName: Month, OptionSetType: Picklist, DefaultFormValue: -1</summary>

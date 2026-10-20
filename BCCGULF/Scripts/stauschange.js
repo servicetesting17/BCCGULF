@@ -1,5 +1,4 @@
 ﻿function toggleRejectionRemark(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     var statusAttr = formContext.getAttribute("bcc_status");
@@ -23,10 +22,9 @@
         remarkAttr.setValue(null); // optional: clear value
     }
 }
-
+    
 
 async function createContact_OnSaves(executionContext) {
-    debugger;
     try {
         var formContext = executionContext.getFormContext();
 
@@ -38,7 +36,6 @@ async function createContact_OnSaves(executionContext) {
 
         //  Safe getter
         function getValue(field) {
-            debugger;
             var attr = formContext.getAttribute(field);
             return attr ? attr.getValue() : null;
         }
@@ -80,7 +77,7 @@ async function createContact_OnSaves(executionContext) {
         var result = await Xrm.WebApi.createRecord("contact", contact);
 
         // Set Contact lookup on form
-        var contactId = "{" + result.id + "}";
+       var contactId = "{" + result.id + "}";
 
         //  Set lookup
         contactLookup.setValue([{
@@ -93,7 +90,7 @@ async function createContact_OnSaves(executionContext) {
 
         console.log(" Contact created & lookup set");
 
-
+        
 
     } catch (error) {
         console.error(" Error:", error.message);
@@ -112,13 +109,12 @@ var BCC = BCC || {};
 BCC.JobOffer = {
 
     populateFromJobApplication: function (executionContext) {
-        debugger;
 
         var formContext = executionContext.getFormContext();
 
         var jobAppLookup = formContext.getAttribute("bcc_jobapplication").getValue();
 
-        // If lookup is empty â†’ clear fields
+        // If lookup is empty → clear fields
         if (!jobAppLookup || jobAppLookup.length === 0) {
             formContext.getAttribute("bcc_basic").setValue(null);
             formContext.getAttribute("bcc_totalsalary").setValue(null);
@@ -134,7 +130,6 @@ BCC.JobOffer = {
             "?$select=bcc_basic,bcc_totalsalary,bcc_allowance"
         ).then(
             function (result) {
-                debugger;
 
                 if (formContext.getAttribute("bcc_basic"))
                     formContext.getAttribute("bcc_basic").setValue(result.bcc_basic);
@@ -148,7 +143,6 @@ BCC.JobOffer = {
                 console.log(" Job Application data copied successfully");
             },
             function (error) {
-                debugger;
                 console.error(" Error retrieving Job Application:", error.message);
             }
         );
@@ -166,7 +160,6 @@ var BCC = BCC || {};
 BCC.BPFAA = {
 
     switchFormOnStageChange: function (executionContext) {
-        debugger;
 
         var formContext = executionContext.getFormContext();
         var process = formContext.data.process;
@@ -174,7 +167,6 @@ BCC.BPFAA = {
         if (!process) return;
 
         process.addOnStageChange(function () {
-            debugger;
 
             var stage = process.getActiveStage();
             if (!stage) return;
@@ -186,7 +178,6 @@ BCC.BPFAA = {
 
                 //  IMPORTANT: Delay required
                 setTimeout(function () {
-                    debugger;
 
                     Xrm.Navigation.openForm({
                         entityName: formContext.data.entity.getEntityName(),
@@ -210,7 +201,6 @@ var BCC = BCC || {};
 BCC.BPFValidation = {
 
     onLoad: function (executionContext) {
-        debugger;
         var formContext = executionContext.getFormContext();
 
         var dobAttr = formContext.getAttribute("bcc_dateofbirth");
@@ -218,13 +208,11 @@ BCC.BPFValidation = {
 
         // Attach onchange
         dobAttr.addOnChange(function () {
-            debugger;
             BCC.BPFValidation.validateDOB(formContext);
         });
     },
 
     validateDOB: function (formContext) {
-        debugger;
         var dobAttr = formContext.getAttribute("bcc_dateofbirth");
         if (!dobAttr || !dobAttr.getValue()) return;
 
@@ -259,14 +247,12 @@ var BCC = BCC || {};
 BCC.BPFAMOL = {
 
     onLoad: function (executionContext) {
-        debugger;
 
         var formContext = executionContext.getFormContext();
 
         if (!formContext.data.process) return;
 
         formContext.data.process.addOnStageChange(function () {
-            debugger;
 
             var stage = formContext.data.process.getActiveStage();
             if (!stage) return;
@@ -280,10 +266,8 @@ BCC.BPFAMOL = {
 
                 //  Delay is VERY important
                 setTimeout(function () {
-                    debugger;
 
                     formContext.ui.formSelector.items.forEach(function (item) {
-                        debugger;
 
                         if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                             item.navigate();
@@ -309,19 +293,16 @@ var BCC = BCC || {};
 BCC.BPFAMOLLEV = {
 
     onLoad: function (executionContext) {
-        debugger;
         var formContext = executionContext.getFormContext();
 
         if (!formContext.data.process) return;
 
         formContext.data.process.addOnStageChange(function () {
-            debugger;
             BCC.BPFAMOLLEV.checkStageAndStatus(formContext);
         });
     },
 
     checkStageAndStatus: function (formContext) {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
@@ -332,7 +313,6 @@ BCC.BPFAMOLLEV = {
     },
 
     handleDecision: function (executionContext) {
-        debugger;
 
         var formContext = executionContext.getFormContext();
 
@@ -342,11 +322,10 @@ BCC.BPFAMOLLEV = {
         var REJECT = 755700001;
         var APPROVE = 755700000;
 
-        //  REJECT â†’ open another form
+        //  REJECT → open another form
         if (decision === REJECT) {
 
             setTimeout(function () {
-                debugger;
                 Xrm.Navigation.openForm({
                     entityName: formContext.data.entity.getEntityName(),
                     entityId: formContext.data.entity.getId(),
@@ -355,7 +334,7 @@ BCC.BPFAMOLLEV = {
             }, 1000);
         }
 
-        //  APPROVE â†’ move next stage
+        //  APPROVE → move next stage
         if (decision === APPROVE) {
             formContext.data.process.moveNext();
         }
@@ -370,25 +349,27 @@ BCC.BPFAMOLLEV = {
 var BCC = BCC || {};
 
 BCC.JobApp = {
-
     onEmployeeVerificationChange: function (executionContext) {
-        debugger;
-
         var formContext = executionContext.getFormContext();
-
-        var verification =
-            formContext.getAttribute("bcc_employerverification").getValue();
+        var verification = formContext.getAttribute("bcc_employerverification").getValue();
 
         var APPROVED = 755700000;
-        var CLOSE_STATUS = 755700001;
 
         if (verification === APPROVED) {
+            var entityName = formContext.data.entity.getEntityName();
+            var recordId = formContext.data.entity.getId().replace(/[{}]/g, "");
 
-            // Status Reason
-            formContext.getAttribute("statuscode").setValue(CLOSE_STATUS);
-
-            //  MUST SAVE
-            formContext.data.entity.save();
+            Xrm.WebApi.updateRecord(entityName, recordId, {
+                "statecode": 1,        // Inactive
+                "statuscode": 755700001 // your closed/approved status value
+            }).then(
+                function () {
+                    formContext.data.refresh(false);
+                },
+                function (error) {
+                    Xrm.Navigation.openAlertDialog({ text: "Error: " + error.message });
+                }
+            );
         }
     }
 };
@@ -398,7 +379,6 @@ BCC.JobApp = {
 var ManpowerQuota = ManpowerQuota || {};
 
 ManpowerQuota.lockFieldsAfterSave = function (executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     // Set default value for quota used
@@ -419,7 +399,6 @@ ManpowerQuota.lockFieldsAfterSave = function (executionContext) {
 
         // Lock common fields
         fieldsToLock.forEach(function (fieldName) {
-            debugger;
             var control = formContext.getControl(fieldName);
             if (control) {
                 control.setDisabled(true);
@@ -434,11 +413,10 @@ ManpowerQuota.lockFieldsAfterSave = function (executionContext) {
             var hasAccessRole = false;
 
             userRoles.forEach(function (role) {
-                debugger;
                 var roleName = role.name;
                 if (
                     roleName === "Project Director" ||
-                    roleName === "System Administrator" ||
+                    roleName === "System Administrator"||
                     roleName === "PRO-HR"
                 ) {
                     hasAccessRole = true;
@@ -457,7 +435,6 @@ ManpowerQuota.lockFieldsAfterSave = function (executionContext) {
 var Bcc_FormHandler = Bcc_FormHandler || {};
 
 Bcc_FormHandler.forceInformationFormOnCreate = function (executionContext) {
-    debugger;
     try {
         var formContext = executionContext.getFormContext();
 
@@ -493,7 +470,6 @@ Bcc_FormHandler.forceInformationFormOnCreate = function (executionContext) {
 
 var Bcc_FormHandler = Bcc_FormHandler || {};
 Bcc_FormHandler.openInformationFormOnNew = function (executionContext) {
-    debugger;
     try {
         var formContext = executionContext.getFormContext();
 
@@ -516,7 +492,6 @@ Bcc_FormHandler.openInformationFormOnNew = function (executionContext) {
 
         // Navigate to the Information form
         formContext.ui.formSelector.items.forEach(function (item) {
-            debugger;
             var itemId = item.getId().replace(/[{}]/g, "").toLowerCase();
             if (itemId === targetFormId) {
                 item.navigate();
@@ -537,14 +512,12 @@ var BCC = BCC || {};
 BCC.BPFAMOLLLL = {
 
     onLoad: function (executionContext) {
-        debugger;
 
         var formContext = executionContext.getFormContext();
 
         if (!formContext.data.process) return;
 
         formContext.data.process.addOnStageChange(function () {
-            debugger;
 
             var stage = formContext.data.process.getActiveStage();
             if (!stage) return;
@@ -558,10 +531,8 @@ BCC.BPFAMOLLLL = {
 
                 //  Delay is VERY important
                 setTimeout(function () {
-                    debugger;
 
                     formContext.ui.formSelector.items.forEach(function (item) {
-                        debugger;
 
                         if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                             item.navigate();
@@ -588,7 +559,6 @@ BCC.BPFAMOLLLL = {
 // ========================================
 
 function ManageApplicationFromFields(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     if (!formContext) return;
 
@@ -615,7 +585,6 @@ function ManageApplicationFromFields(executionContext) {
 
 // Helper function to show field and make it mandatory
 function ShowAndMakeMandatory(formContext, fieldName) {
-    debugger;
     // Show the field
     var control = formContext.getControl(fieldName);
     if (control) {
@@ -632,7 +601,6 @@ function ShowAndMakeMandatory(formContext, fieldName) {
 
 // Helper function to hide field and remove mandatory
 function HideAndRemoveMandatory(formContext, fieldName) {
-    debugger;
     // Hide the field
     var control = formContext.getControl(fieldName);
     if (control) {
@@ -657,7 +625,6 @@ function HideAndRemoveMandatory(formContext, fieldName) {
 // ========================================
 
 function ManageEmployerVerificationFields(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     if (!formContext) return;
 
@@ -683,7 +650,6 @@ function ManageEmployerVerificationFields(executionContext) {
 
 // Helper function to show field and make it mandatory
 function ShowAndMakeMandatory(formContext, fieldName) {
-    debugger;
     // Show the field
     var control = formContext.getControl(fieldName);
     if (control) {
@@ -700,7 +666,6 @@ function ShowAndMakeMandatory(formContext, fieldName) {
 
 // Helper function to hide field and remove mandatory
 function HideAndRemoveMandatory(formContext, fieldName) {
-    debugger;
     // Hide the field
     var control = formContext.getControl(fieldName);
     if (control) {
@@ -732,7 +697,6 @@ function HideAndRemoveMandatory(formContext, fieldName) {
 var isFileCopyInProgress = false;
 
 function CopyFilesToJobOffer(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     if (!formContext) return;
 
@@ -774,7 +738,7 @@ function CopyFilesToJobOffer(executionContext) {
     );
 
     // ONLY CHANGE: Poll every 5 seconds instead of waiting 7 seconds once
-    // Flow needs time to create Job Offer â€” we keep checking until it appears
+    // Flow needs time to create Job Offer — we keep checking until it appears
     PollForJobOfferThenCopy(recordId, formContext, 0, 12);
 }
 
@@ -785,7 +749,6 @@ function CopyFilesToJobOffer(executionContext) {
 // ========================================
 
 function PollForJobOfferThenCopy(jobApplicationId, formContext, attempt, maxAttempts) {
-    debugger;
 
     if (attempt >= maxAttempts) {
         // Tried for 60 seconds, gave up
@@ -812,30 +775,27 @@ function PollForJobOfferThenCopy(jobApplicationId, formContext, attempt, maxAtte
 
     Xrm.WebApi.retrieveMultipleRecords("bcc_joboffer", "?fetchXml=" + encodeURIComponent(fetchXml)).then(
         function success(result) {
-            debugger;
             if (result.entities.length > 0) {
-                // Job Offer found â€” hand off to your existing function
+                // Job Offer found — hand off to your existing function
                 var jobOfferId = result.entities[0].bcc_jobofferid;
                 console.log("Job Offer found on attempt " + (attempt + 1) + ": " + jobOfferId);
                 Xrm.Utility.showProgressIndicator("Job Offer found! Copying files...");
                 // Call your existing function directly with the found ID
                 CopyAllFilesToJobOffer(jobApplicationId, jobOfferId, formContext);
             } else {
-                //  Flow not done yet â€” wait 5 seconds and try again
-                //  Flow not done yet â€” wait 5 seconds and try again
-                var nextAttempt = attempt + 1;
-                console.log("Job Offer not ready yet, attempt " + nextAttempt + " of " + maxAttempts);
-                Xrm.Utility.showProgressIndicator(
-                    "Files will be copied to Job Offer. Please wait..."
-                );
-                setTimeout(function () {
-                    debugger;
-                    PollForJobOfferThenCopy(jobApplicationId, formContext, nextAttempt, maxAttempts);
-                }, 5000);
+                //  Flow not done yet — wait 5 seconds and try again
+                //  Flow not done yet — wait 5 seconds and try again
+var nextAttempt = attempt + 1;
+console.log("Job Offer not ready yet, attempt " + nextAttempt + " of " + maxAttempts);
+Xrm.Utility.showProgressIndicator(
+    "Files will be copied to Job Offer. Please wait..."
+);
+setTimeout(function () {
+    PollForJobOfferThenCopy(jobApplicationId, formContext, nextAttempt, maxAttempts);
+}, 5000);
             }
         },
         function error(error) {
-            debugger;
             Xrm.Utility.closeProgressIndicator();
             isFileCopyInProgress = false;
             Xrm.Navigation.openAlertDialog({
@@ -852,7 +812,6 @@ function PollForJobOfferThenCopy(jobApplicationId, formContext, attempt, maxAtte
 // ========================================
 
 function FindJobOfferByJobApplication(jobApplicationId, formContext) {
-    debugger;
 
     // Check if at least one file field has data before searching
     var cancellationPaper = formContext.getAttribute("bcc_cancellationpaper");
@@ -899,7 +858,6 @@ function FindJobOfferByJobApplication(jobApplicationId, formContext) {
 
     Xrm.WebApi.retrieveMultipleRecords("bcc_joboffer", "?fetchXml=" + encodeURIComponent(fetchXml)).then(
         function success(result) {
-            debugger;
             try {
                 if (result.entities.length > 0) {
                     var jobOfferId = result.entities[0].bcc_jobofferid;
@@ -907,7 +865,7 @@ function FindJobOfferByJobApplication(jobApplicationId, formContext) {
                     CopyAllFilesToJobOffer(jobApplicationId, jobOfferId, formContext);
                 } else {
                     Xrm.Navigation.openAlertDialog({
-                        title: "âš ï¸ Job Offer Not Found",
+                        title: "⚠️ Job Offer Not Found",
                         text: "No Job Offer record found linked to this Job Application.\n\nPlease ensure Job Offer is created first."
                     });
                 }
@@ -923,7 +881,6 @@ function FindJobOfferByJobApplication(jobApplicationId, formContext) {
             }
         },
         function error(error) {
-            debugger;
             Xrm.Utility.closeProgressIndicator();
             isFileCopyInProgress = false;
             Xrm.Navigation.openAlertDialog({
@@ -941,24 +898,22 @@ function FindJobOfferByJobApplication(jobApplicationId, formContext) {
 // ========================================
 
 function CopyAllFilesToJobOffer(jobApplicationId, jobOfferId, formContext) {
-    debugger;
 
     var fieldMappings = [
         { source: "bcc_cancellationpaper", target: "bcc_cancellationform" },
-        { source: "bcc_workerform", target: "bcc_workerform" },
-        { source: "bcc_passport", target: "bcc_passport" },
-        { source: "bcc_degreecertificate", target: "bcc_degreecertificate" },
-        { source: "bcc_passport2", target: "bcc_passport2jo" },
-        { source: "bcc_otherdocument", target: "bcc_otherdocument" },
-        { source: "bcc_passport3", target: "bcc_passport3" },
-        { source: "bcc_mohreletter", target: "bcc_mohreletter" },
+        { source: "bcc_workerform",         target: "bcc_workerform" },
+        { source: "bcc_passport",           target: "bcc_passport" },
+        { source: "bcc_degreecertificate",  target: "bcc_degreecertificate" },
+        { source: "bcc_passport2",          target: "bcc_passport2jo" },
+        { source: "bcc_otherdocument",      target: "bcc_otherdocument" },
+        { source: "bcc_passport3",          target: "bcc_passport3" },
+        { source: "bcc_mohreletter",        target: "bcc_mohreletter" },
         { source: "bcc_degreecertificate2", target: "bcc_degreecertificate2" }
     ];
 
     var copyPromises = [];
 
     fieldMappings.forEach(function (mapping) {
-        debugger;
         var sourceAttr = formContext.getAttribute(mapping.source);
         if (sourceAttr && sourceAttr.getValue()) {
             try {
@@ -987,21 +942,18 @@ function CopyAllFilesToJobOffer(jobApplicationId, jobOfferId, formContext) {
 
     Promise.all(copyPromises)
         .then(function () {
-            debugger;
             Xrm.Navigation.openAlertDialog({
                 title: " Files Copied Successfully",
                 text: "All files have been copied to Job Offer."
             });
         })
         .catch(function (error) {
-            debugger;
             Xrm.Navigation.openAlertDialog({
                 title: " Copy Failed",
                 text: "Some files could not be copied.\n\nError: " + error
             });
         })
         .finally(function () {
-            debugger;
             Xrm.Utility.closeProgressIndicator();
             isFileCopyInProgress = false;
         });
@@ -1022,13 +974,11 @@ function CopyFileField(
     formContext
 ) {
     return new Promise(function (resolve, reject) {
-        debugger;
 
         console.log("Starting copy: " + sourceFieldName + " -> " + targetFieldName);
 
         Xrm.Utility.getEntityMetadata(sourceEntityName).then(
             function (sourceEntityData) {
-                debugger;
 
                 var sourceEntitySetName = sourceEntityData.EntitySetName;
 
@@ -1046,7 +996,6 @@ function CopyFileField(
                 downloadReq.responseType = "blob";
 
                 downloadReq.onload = function () {
-                    debugger;
                     if (downloadReq.status === 200) {
 
                         var blob = downloadReq.response;
@@ -1068,10 +1017,8 @@ function CopyFileField(
                         if (sourceFieldName === "bcc_image") {
                             var reader = new FileReader();
                             reader.onload = function (e) {
-                                debugger;
                                 var img = new Image();
                                 img.onload = function () {
-                                    debugger;
                                     var canvas = document.createElement("canvas");
                                     var targetSize = 600;
                                     canvas.width = targetSize;
@@ -1081,7 +1028,6 @@ function CopyFileField(
                                     ctx.imageSmoothingQuality = "high";
                                     ctx.drawImage(img, 0, 0, targetSize, targetSize);
                                     canvas.toBlob(function (resizedBlob) {
-                                        debugger;
                                         console.log("Image resized to 600x600 with high quality");
                                         UploadFileToTarget(
                                             targetEntityName, targetRecordId, targetFieldName,
@@ -1111,7 +1057,6 @@ function CopyFileField(
                 };
 
                 downloadReq.onerror = function () {
-                    debugger;
                     console.error("Network error downloading from: " + sourceFieldName);
                     reject("Download network error");
                 };
@@ -1119,7 +1064,6 @@ function CopyFileField(
                 downloadReq.send();
             },
             function (error) {
-                debugger;
                 console.error("Metadata error (source): " + error.message);
                 reject("Metadata error: " + error.message);
             }
@@ -1145,7 +1089,6 @@ function UploadFileToTarget(
 ) {
     Xrm.Utility.getEntityMetadata(targetEntityName).then(
         function (targetEntityData) {
-            debugger;
 
             var targetEntitySetName = targetEntityData.EntitySetName;
 
@@ -1164,7 +1107,6 @@ function UploadFileToTarget(
             uploadReq.setRequestHeader("Prefer", "odata.include-annotations=\"*\"");
 
             uploadReq.onload = function () {
-                debugger;
                 if (uploadReq.status === 204 || uploadReq.status === 200) {
                     console.log(" Uploaded: " + fileName + " to " + targetFieldName + " (High quality preserved)");
                     resolve("Success: " + fileName);
@@ -1176,7 +1118,6 @@ function UploadFileToTarget(
             };
 
             uploadReq.onerror = function () {
-                debugger;
                 console.error("Network error uploading to: " + targetFieldName);
                 reject("Upload network error");
             };
@@ -1184,7 +1125,6 @@ function UploadFileToTarget(
             uploadReq.send(fileData);
         },
         function (error) {
-            debugger;
             console.error("Metadata error (target): " + error.message);
             reject("Metadata error: " + error.message);
         }
@@ -1199,14 +1139,12 @@ function UploadFileToTarget(
 
 
 function BPFAMOLLLLEM(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
 
     if (!formContext.data.process) return;
 
     formContext.data.process.addOnStageChange(function () {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
@@ -1220,10 +1158,8 @@ function BPFAMOLLLLEM(executionContext) {
 
             //  Delay is VERY important
             setTimeout(function () {
-                debugger;
 
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
 
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
@@ -1240,7 +1176,6 @@ function BPFAMOLLLLEM(executionContext) {
 
 
 function PreApprovalWorkPermit(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
 
@@ -1266,28 +1201,24 @@ function PreApprovalWorkPermit(executionContext) {
 
 
 function InsuranceMOLForm(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
 
     formContext.data.process.addOnStageChange(function () {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
 
-        var stageName = stage.getName(); // â† preserved variable line
+        var stageName = stage.getName(); // ← preserved variable line
 
         if (stageName === "Insurance MOL Form") {
 
             var targetFormId = "91db6c01-e2ea-f011-8406-70a8a51d70b3";
 
             setTimeout(function () {
-                debugger;
 
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
                     }
@@ -1304,28 +1235,24 @@ function InsuranceMOLForm(executionContext) {
 
 
 function Labourfee(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
 
     formContext.data.process.addOnStageChange(function () {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
 
-        var stageName = stage.getName(); // â† preserved variable line
+        var stageName = stage.getName(); // ← preserved variable line
 
         if (stageName === "Labour Fee") {
 
             var targetFormId = "2475379f-5df0-f011-8406-70a8a52030e9";
 
             setTimeout(function () {
-                debugger;
 
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
                     }
@@ -1345,7 +1272,6 @@ function Labourfee(executionContext) {
 
 
 function VisaFeecs(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
@@ -1358,7 +1284,6 @@ function VisaFeecs(executionContext) {
     if (applyVisaValue !== 755700000) return; // Only run if "Inside Country" is selected
 
     formContext.data.process.addOnStageChange(function () {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
@@ -1370,10 +1295,8 @@ function VisaFeecs(executionContext) {
             var targetFormId = "eb0903e4-5ef0-f011-8406-70a8a52030e9";
 
             setTimeout(function () {
-                debugger;
 
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
                     }
@@ -1388,28 +1311,24 @@ function VisaFeecs(executionContext) {
 
 
 function EIDfee(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
 
     formContext.data.process.addOnStageChange(function () {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
 
-        var stageName = stage.getName(); // â† preserved variable line
+        var stageName = stage.getName(); // ← preserved variable line
 
         if (stageName === "EID Fee") {
 
             var targetFormId = "080ee06f-5ff0-f011-8406-0022480de9a8";
 
             setTimeout(function () {
-                debugger;
 
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
                     }
@@ -1425,28 +1344,24 @@ function EIDfee(executionContext) {
 
 
 function ILOEfee(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
 
     formContext.data.process.addOnStageChange(function () {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
 
-        var stageName = stage.getName(); // â† preserved variable line
+        var stageName = stage.getName(); // ← preserved variable line
 
         if (stageName === "ILOE Fee") {
 
             var targetFormId = "80cc2fc5-5ff0-f011-8406-0022480de9a8";
 
             setTimeout(function () {
-                debugger;
 
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
                     }
@@ -1463,28 +1378,24 @@ function ILOEfee(executionContext) {
 
 
 function Tawjeefee(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
 
     formContext.data.process.addOnStageChange(function () {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
 
-        var stageName = stage.getName(); // â† preserved variable line
+        var stageName = stage.getName(); // ← preserved variable line
 
         if (stageName === "Tawjee Fee") {
 
             var targetFormId = "874e5278-60f0-f011-8406-70a8a52260b1";
 
             setTimeout(function () {
-                debugger;
 
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
                     }
@@ -1502,28 +1413,24 @@ function Tawjeefee(executionContext) {
 
 
 function Residency(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
 
     formContext.data.process.addOnStageChange(function () {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
 
-        var stageName = stage.getName(); // â† preserved variable line
+        var stageName = stage.getName(); // ← preserved variable line
 
         if (stageName === "Residency") {
 
             var targetFormId = "76375402-61f0-f011-8406-70a8a522b0a0";
 
             setTimeout(function () {
-                debugger;
 
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
                     }
@@ -1542,28 +1449,24 @@ function Residency(executionContext) {
 
 
 function Medicalfee(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
 
     formContext.data.process.addOnStageChange(function () {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
 
-        var stageName = stage.getName(); // â† preserved variable line
+        var stageName = stage.getName(); // ← preserved variable line
 
         if (stageName === "Medical Fee") {
 
             var targetFormId = "1eb03537-5ff0-f011-8406-70a8a522b0a0";
 
             setTimeout(function () {
-                debugger;
 
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
                     }
@@ -1579,28 +1482,24 @@ function Medicalfee(executionContext) {
 
 
 function VisaFeee(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
 
     formContext.data.process.addOnStageChange(function () {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
 
-        var stageName = stage.getName(); // â† preserved variable line
+        var stageName = stage.getName(); // ← preserved variable line
 
         if (stageName === "Visa Fee") {
 
             var targetFormId = "5b8da095-5ef0-f011-8406-70a8a52260b1";
 
             setTimeout(function () {
-                debugger;
 
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
                     }
@@ -1613,48 +1512,109 @@ function VisaFeee(executionContext) {
 
 
 
-
+// ─── MAIN ENTRY: call this on Form OnLoad ───────────────────────────────────
 function SetStageNameToStatusReason(executionContext) {
-    debugger;
-
     var formContext = executionContext.getFormContext();
     if (!formContext || !formContext.data || !formContext.data.process) return;
 
-    function setStatus() {
-        debugger;
+    // 1. Run immediately on load (for stages that have their own form)
+    setTimeout(function () {
+        updateStatusFields(formContext);
+    }, 800);
 
-        var stage = formContext.data.process.getActiveStage();
-        if (!stage) return;
+    // 2. Also register stage change handler (for stages sharing a form)
+    formContext.data.process.removeOnStageChange(onStageChanged); // prevent duplicates
+    formContext.data.process.addOnStageChange(onStageChanged);
+}
 
-        var stageName = stage.getName();
+// ─── STAGE CHANGE HANDLER ────────────────────────────────────────────────────
+function onStageChanged(executionContext) {
+    var formContext = executionContext.getFormContext();
+    if (!formContext) return;
 
-        var statusAttr = formContext.getAttribute("statuscode");
-        if (!statusAttr) return;
+    setTimeout(function () {
+        updateStatusFields(formContext);
+    }, 500);
+}
 
-        var options = statusAttr.getOptions();
-        var targetValue = null;
+// ─── CORE LOGIC: Set statuscode + bcc_substagestatus ─────────────────────────
+function updateStatusFields(formContext) {
+    // --- Step 1: Get current BPF stage name ---
+    var stage = formContext.data.process.getActiveStage();
+    if (!stage) return;
+    var stageName = stage.getName();
 
-        for (var i = 0; i < options.length; i++) {
-            if (options[i].text === stageName) {
-                targetValue = options[i].value;
-                break;
-            }
+    // --- Step 2: Match stage name to statuscode option ---
+    var statusAttr = formContext.getAttribute("statuscode");
+    if (!statusAttr) return;
+
+    var options = statusAttr.getOptions();
+    var statusValue = null;
+
+    for (var i = 0; i < options.length; i++) {
+        if (options[i].text === stageName) {
+            statusValue = options[i].value;
+            break;
         }
-
-        if (targetValue === null) return;
-
-        //  Only set (NO SAVE)
-        statusAttr.setValue(targetValue);
-        statusAttr.setSubmitMode("always");
     }
 
-    // Delay for proper stage detection
-    setTimeout(setStatus, 800);
+    if (statusValue === null) return; // no matching option found, exit
+
+    // Set statuscode
+    statusAttr.setValue(statusValue);
+    statusAttr.setSubmitMode("always");
+
+    // --- Step 3: Set bcc_substagestatus based on statuscode value ---
+    var subStageAttr = formContext.getAttribute("bcc_substagestatus");
+    if (!subStageAttr) return;
+
+    var subStageValue = getSubStageStatus(statusValue);
+
+    if (subStageValue !== null) {
+        subStageAttr.setValue(subStageValue);
+        subStageAttr.setSubmitMode("always");
+    }
+
+    // --- Step 4: Override bcc_substagestatus if bcc_approval = 755700000 ---
+    var approvalAttr = formContext.getAttribute("bcc_approval");
+    if (approvalAttr) {
+        var approvalValue = approvalAttr.getValue();
+        if (approvalValue === 755700001) {
+            subStageAttr.setValue(755700001);
+            subStageAttr.setSubmitMode("always");
+        }
+        // else: keep bcc_substagestatus as already set above
+    }
+}
+
+// ─── MAP statuscode value → bcc_substagestatus value ─────────────────────────
+function getSubStageStatus(statusValue) {
+    // 👇 EDIT THIS MAP to match your actual option values
+    var mapping = {
+        // statuscode value : bcc_substagestatus value
+        100000000: 755700000,
+        100000001: 755700000,
+        755700001: 755700000,
+        755700002: 755700000,
+        755700003: 755700000,
+        755700004: 755700000,
+        755700005: 755700000,
+        755700007: 755700000,
+        755700008: 755700000,
+        755700016: 755700000,
+        755700015: 755700001,
+        755700014: 755700001,
+        755700013: 755700001,
+        
+    };
+
+    return mapping.hasOwnProperty(statusValue) ? mapping[statusValue] : null;
 }
 
 
+
+
 function VisaFeemf(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
@@ -1673,7 +1633,6 @@ function VisaFeemf(executionContext) {
     formContext.data.process.addOnStageChange(stageChangeHandler);
 
     function stageChangeHandler() {
-        debugger;
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
 
@@ -1683,9 +1642,7 @@ function VisaFeemf(executionContext) {
             var targetFormId = "1eb03537-5ff0-f011-8406-70a8a522b0a0";
 
             setTimeout(function () {
-                debugger;
                 formContext.ui.formSelector.items.forEach(function (item) {
-                    debugger;
                     if (item.getId().toLowerCase() === targetFormId.toLowerCase()) {
                         item.navigate();
                     }
@@ -1695,7 +1652,6 @@ function VisaFeemf(executionContext) {
     }
 }
 function setSignedFieldsRequired(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     var employeeContract = formContext.getAttribute("bcc_employeecontract");
@@ -1726,7 +1682,6 @@ function setSignedFieldsRequired(executionContext) {
 
 
 function setStatusOnBPFComplete(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     // Check if we're on the correct form
@@ -1743,17 +1698,14 @@ function setStatusOnBPFComplete(executionContext) {
 
     // Listen for stage changes (fires when Finish button is clicked)
     formContext.data.process.addOnStageChange(function () {
-        debugger;
         // Wait briefly for BPF stage change to complete
-        setTimeout(function () {
-            debugger;
+        setTimeout(function() {
             checkIfBPFCompleted(formContext);
         }, 2000);
     });
 }
 
 function checkIfBPFCompleted(formContext) {
-    debugger;
     try {
         var activeStageAttr = formContext.getAttribute("activestage");
 
@@ -1781,23 +1733,20 @@ function checkIfBPFCompleted(formContext) {
                 // Step 1: Set statecode to Inactive
                 stateAttr.setValue(1);
 
-                formContext.data.save().then(function () {
-                    debugger;
+                formContext.data.save().then(function() {
                     // Step 2: After save, set statuscode
                     statusAttr.setValue(100000003);
+                    
                     formContext.data.save().then(
-                        function () {
-                            debugger;
-                            console.log("âœ“âœ“ SUCCESS! Status Reason is now 100000003");
+                        function() { 
+                            console.log("✓✓ SUCCESS! Status Reason is now 100000003"); 
                         },
-                        function (error) {
-                            debugger;
-                            console.error("âœ— ERROR while saving statuscode: " + error.message);
+                        function(error) { 
+                            console.error("✗ ERROR while saving statuscode: " + error.message); 
                         }
                     );
-                }, function (error) {
-                    debugger;
-                    console.error("âœ— ERROR while saving statecode: " + error.message);
+                }, function(error) {
+                    console.error("✗ ERROR while saving statecode: " + error.message);
                 });
 
             } else {
@@ -1808,7 +1757,7 @@ function checkIfBPFCompleted(formContext) {
         }
 
     } catch (e) {
-        console.error("âœ— ERROR: " + e.message);
+        console.error("✗ ERROR: " + e.message);
     }
 }
 
@@ -1821,36 +1770,35 @@ function checkIfBPFCompleted(formContext) {
 // REGISTER ON FORM ONSAVE EVENT
 // ===================================
 function checkBPFOnSave(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
-
+    
     // Check if we're on the correct form
     try {
         var currentFormId = formContext.ui.formSelector.getCurrentItem().getId().toLowerCase().replace(/[{}]/g, "");
         var targetFormId = "76375402-61f0-f011-8406-70a8a522b0a0";
-
+        
         if (currentFormId !== targetFormId) {
             return;
         }
     } catch (e) {
         // Continue if form check fails
     }
-
+    
     if (!formContext.data.process) {
         return;
     }
-
+    
     try {
         // Get the processid field (hidden field that becomes null when BPF finishes)
         var processIdAttr = formContext.getAttribute("processid");
-
+        
         if (!processIdAttr) {
             checkByStageCompletion(formContext);
             return;
         }
-
+        
         var processIdValue = processIdAttr.getValue();
-
+        
         // If processid is null, BPF is finished
         if (processIdValue === null || processIdValue === "") {
             updateStatusToHiredAndDeactivate(formContext);
@@ -1858,30 +1806,31 @@ function checkBPFOnSave(executionContext) {
             // Also check if we're on last stage with all steps complete
             checkByStageCompletion(formContext);
         }
-
+        
     } catch (e) {
         alert("Error: " + e.message);
     }
 }
 
 function checkByStageCompletion(formContext) {
-    debugger;
     try {
-        var activeStage = formContext.data.process.getActiveStage();
+        // ✅ Only run if BPF is actually finished
+        var processStatus = formContext.data.process.getStatus();
+        if (processStatus !== "finished") return; // ← ADD THIS, stops everything below
 
+        var activeStage = formContext.data.process.getActiveStage();
+        
         if (!activeStage) {
             updateStatusToHiredAndDeactivate(formContext);
             return;
         }
-
+        
         var stageName = activeStage.getName();
-
-        // Check if we're on Residency (last stage)
+        
         if (stageName === "Residency") {
-            // Check if all required fields are filled
             var steps = activeStage.getSteps();
             var allComplete = true;
-
+            
             for (var i = 0; i < steps.getLength(); i++) {
                 var step = steps.get(i);
                 if (step.isRequired()) {
@@ -1892,36 +1841,35 @@ function checkByStageCompletion(formContext) {
                     }
                 }
             }
-
+            
             if (allComplete) {
                 updateStatusToHiredAndDeactivate(formContext);
             }
         }
-
+        
     } catch (e) {
         // Error in stage check
     }
 }
 
 function updateStatusToHiredAndDeactivate(formContext) {
-    debugger;
     try {
         var statusAttr = formContext.getAttribute("statuscode");
         var stateAttr = formContext.getAttribute("statecode");
         if (!statusAttr || !stateAttr) {
             return;
         }
-
+        
         var currentStatus = statusAttr.getValue();
-
+        
         if (currentStatus !== 100000003) {
             // Set status to Hired
             stateAttr.setValue(1); // Inactive
             statusAttr.setValue(100000003);
-
+            
             // alert("Status set to Hired. Record will be deactivated after save.");
         }
-
+        
     } catch (e) {
         alert("Error updating status: " + e.message);
     }
@@ -1929,17 +1877,16 @@ function updateStatusToHiredAndDeactivate(formContext) {
 
 // Helper function to deactivate record using Web API
 function deactivateRecord(formContext) {
-    debugger;
     try {
         var entityName = formContext.data.entity.getEntityName();
         var recordId = formContext.data.entity.getId().replace(/[{}]/g, "");
-
+        
         // Use SetState request to properly deactivate the record
         var parameters = {
             State: { Value: 1 }, // Inactive
             Status: { Value: 2 }  // Inactive status (default inactive status reason)
         };
-
+        
         var req = {
             entity: {
                 id: recordId,
@@ -1947,9 +1894,8 @@ function deactivateRecord(formContext) {
             },
             State: parameters.State,
             Status: parameters.Status,
-
-            getMetadata: function () {
-                debugger;
+            
+            getMetadata: function() {
                 return {
                     boundParameter: "entity",
                     parameterTypes: {
@@ -1971,19 +1917,17 @@ function deactivateRecord(formContext) {
                 };
             }
         };
-
+        
         Xrm.WebApi.online.execute(req).then(
-            function () {
-                debugger;
+            function() {
                 alert("Record deactivated successfully!");
                 formContext.data.refresh(true);
             },
-            function (error) {
-                debugger;
+            function(error) {
                 alert("Error deactivating record: " + error.message);
             }
         );
-
+        
     } catch (e) {
         alert("Error in deactivate function: " + e.message);
     }
@@ -1994,30 +1938,29 @@ function deactivateRecord(formContext) {
 
 
 async function createContact_OnSave(executionContext) {
-    debugger;
     try {
         const formContext = executionContext.getFormContext();
         const contactAttr = formContext.getAttribute("bcc_contact");
-
+        
         if (contactAttr && contactAttr.getValue()) {
             return; // Contact already exists
         }
-
+        
         const getValue = (field) => {
             const attr = formContext.getAttribute(field);
             return attr ? attr.getValue() : null;
         };
-
+        
         const firstName = getValue("new_givennames");
         const lastName = getValue("bcc_lastname");
-
+        
         if (!firstName || !lastName) {
             return; // Required fields missing
         }
-
+        
         //  FIX: Event args ko pehle get karo, baad mein prevent karo
         // const eventArgs = executionContext.getEventArgs();
-
+        
         var contact = {
             firstname: firstName,
             lastname: lastName,
@@ -2042,7 +1985,7 @@ async function createContact_OnSave(executionContext) {
             bcc_joiningdate: getValue("bcc_joiningdate"),
             bcc_givennames: getValue("bcc_name")
         };
-
+        
         // Remove NULL, undefined, aur arrays
         Object.keys(contact).forEach(key => {
             const value = contact[key];
@@ -2050,27 +1993,27 @@ async function createContact_OnSave(executionContext) {
                 delete contact[key];
             }
         });
-
+        
         console.log(" Creating contact...");
-
+        
         //  IMPORTANT: Prevent save ONLY if we're creating contact
         // eventArgs.preventDefault();
-
+        
         const result = await Xrm.WebApi.createRecord("contact", contact);
-
+        
         console.log(" Contact created:", result.id);
-
+        
         contactAttr.setValue([{
             id: result.id,
             name: `${firstName} ${lastName}`,
             entityType: "contact"
         }]);
-
+        
         contactAttr.setSubmitMode("always");
-
+        
         //  FIX: Save with saveOptions to suppress errors
-
-
+       
+        
     } catch (e) {
         console.error(" Error:", e);
         Xrm.Navigation.openAlertDialog({
@@ -2089,7 +2032,6 @@ var YEAR_MAX = 2050;
 
 // OnChange handler for all three number fields
 function validateYearNumberOnChange(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var attribute = executionContext.getEventSource();
 
@@ -2118,7 +2060,6 @@ function validateYearNumberOnChange(executionContext) {
 
 // OnSave safety check (blocks save)
 function validateYearNumberOnSave(executionContext) {
-    debugger;
     var eventArgs = executionContext.getEventArgs();
     var formContext = executionContext.getFormContext();
 
@@ -2151,7 +2092,6 @@ function validateYearNumberOnSave(executionContext) {
 
 
 function toggleEducationFieldsMandatory(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     var triggerField = "bcc_applicationfrom_";
@@ -2191,17 +2131,15 @@ function toggleEducationFieldsMandatory(executionContext) {
 
 
 function filterUnitLookup(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var unitControl = formContext.getControl("bcc_unit");
 
     if (unitControl) {
         unitControl.addPreSearch(function () {
-            debugger;
 
             var filter = "<filter type='and'>" +
-                "<condition attribute='bcc_unitstatus' operator='eq' value='755700000' />" +
-                "</filter>";
+                         "<condition attribute='bcc_unitstatus' operator='eq' value='755700000' />" +
+                         "</filter>";
 
             unitControl.addCustomFilter(filter);
         });
@@ -2209,17 +2147,15 @@ function filterUnitLookup(executionContext) {
 }
 
 function filterUnitLookup(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var unitControl = formContext.getControl("bcc_unit");
 
     if (unitControl) {
         unitControl.addPreSearch(function () {
-            debugger;
 
             var filter = "<filter type='and'>" +
-                "<condition attribute='bcc_unitstatus' operator='eq' value='755700000' />" +
-                "</filter>";
+                         "<condition attribute='bcc_unitstatus' operator='eq' value='755700000' />" +
+                         "</filter>";
 
             unitControl.addCustomFilter(filter);
         });
@@ -2228,7 +2164,6 @@ function filterUnitLookup(executionContext) {
 
 
 function setUnitOccupiedOnSave(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     var unitValue = formContext.getAttribute("bcc_unit").getValue();
@@ -2243,11 +2178,9 @@ function setUnitOccupiedOnSave(executionContext) {
 
     Xrm.WebApi.updateRecord("bcc_unit", unitId, data).then(
         function success() {
-            debugger;
             console.log("Unit marked as Occupied");
         },
         function error(err) {
-            debugger;
             console.log(err.message);
         }
     );
@@ -2259,35 +2192,31 @@ function setUnitOccupiedOnSave(executionContext) {
 
 
 function copyFileToImage(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var entityName = formContext.data.entity.getEntityName();
     var recordId = formContext.data.entity.getId();
-
+    
     if (!recordId) {
         console.log("Please save the record first");
         return;
     }
-
+    
     recordId = recordId.replace(/[{}]/g, "");
-
+    
     var query = "?$select=bcc_jafile";
-
+    
     Xrm.WebApi.retrieveRecord(entityName, recordId, query).then(
-        function (result) {
-            debugger;
+        function(result) {
             if (result.bcc_jafile) {
                 var data = {};
                 data.bcc_image = result.bcc_jafile;
-
+                
                 Xrm.WebApi.updateRecord(entityName, recordId, data).then(
-                    function () {
-                        debugger;
+                    function() {
                         console.log("Success");
                         formContext.data.refresh(false);
                     },
-                    function (error) {
-                        debugger;
+                    function(error) {
                         console.log("Update error: " + error.message);
                     }
                 );
@@ -2295,8 +2224,7 @@ function copyFileToImage(executionContext) {
                 console.log("No file found");
             }
         },
-        function (error) {
-            debugger;
+        function(error) {
             console.log("Retrieve error: " + error.message);
         }
     );
@@ -2309,7 +2237,6 @@ function copyFileToImage(executionContext) {
 
 
 function AssetType_OnChange(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     var assetType = formContext.getAttribute("bcc_assettype");
@@ -2334,57 +2261,51 @@ function AssetType_OnChange(executionContext) {
     ];
 
     function showFields(fields) {
-        debugger;
         fields.forEach(function (field) {
-            debugger;
             var ctrl = formContext.getControl(field);
             if (ctrl) ctrl.setVisible(true);
         });
     }
 
     function hideFields(fields) {
-        debugger;
         fields.forEach(function (field) {
-            debugger;
             var ctrl = formContext.getControl(field);
             if (ctrl) ctrl.setVisible(false);
         });
     }
 
     function showAllFields() {
-        debugger;
         formContext.ui.controls.forEach(function (control) {
-            debugger;
             if (control && control.setVisible) {
                 control.setVisible(true);
             }
         });
     }
 
-
+    
 
     if (assetTypeValue === 755700002) {
 
-
+        
         showFields(["new_mobile", "new_mobileplan"]);
 
-
+        
         hideFields(assetInfoFields);
         hideFields(["new_startdate", "new_enddate"]);
 
     }
     else if (assetTypeValue === 755700000) {
 
-
+       
         showFields(assetInfoFields);
 
-
+       
         hideFields(mobileFields);
 
     }
     else {
 
-
+        
         showAllFields();
     }
 }
@@ -2401,15 +2322,14 @@ function AssetType_OnChange(executionContext) {
 
 
 function onFileChangeforsigncontract(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
-
+    
     // Get file field value
     var fileValue = formContext.getAttribute("bcc_signcontract").getValue();
-
+    
     // Get date field
     var dateField = formContext.getAttribute("bcc_signcontractdocdate");
-
+    
     // If file uploaded, set current date. If deleted, set null
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
@@ -2425,11 +2345,10 @@ function onFileChangeforsigncontract(executionContext) {
 
 // For bcc_passport
 function onFileChangeForPassport(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_passport").getValue();
     var dateField = formContext.getAttribute("bcc_passportjauploaddste");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2439,11 +2358,10 @@ function onFileChangeForPassport(executionContext) {
 
 // For bcc_passport2
 function onFileChangeForPassport2(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_passport2").getValue();
     var dateField = formContext.getAttribute("bcc_passport2jauploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2453,11 +2371,10 @@ function onFileChangeForPassport2(executionContext) {
 
 // For bcc_passport3
 function onFileChangeForPassport3(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_passport3").getValue();
     var dateField = formContext.getAttribute("bcc_passport3jauploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2467,11 +2384,10 @@ function onFileChangeForPassport3(executionContext) {
 
 // For bcc_jafile
 function onFileChangeForJaFile(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_jafile").getValue();
     var dateField = formContext.getAttribute("bcc_photojauploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2480,11 +2396,10 @@ function onFileChangeForJaFile(executionContext) {
 }
 // Medical Certificate
 function onMedicalFileChange(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_medicalcertificate").getValue();
     var dateField = formContext.getAttribute("bcc_medicalcertificateuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2493,11 +2408,10 @@ function onMedicalFileChange(executionContext) {
 }
 //For medical result
 function onMedicalResultChange(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_medicalresult").getValue();
     var dateField = formContext.getAttribute("bcc_medicalresultuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2506,11 +2420,10 @@ function onMedicalResultChange(executionContext) {
 }
 // For bcc_degreecertificate
 function onFileChangeForDegreeCertificate(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_degreecertificate").getValue();
     var dateField = formContext.getAttribute("bcc_degreecertificatejauploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2520,11 +2433,10 @@ function onFileChangeForDegreeCertificate(executionContext) {
 
 // For bcc_degreecertificate2
 function onFileChangeForDegreeCertificate2(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_degreecertificate2").getValue();
     var dateField = formContext.getAttribute("bcc_degreecertificate2jauploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2534,11 +2446,10 @@ function onFileChangeForDegreeCertificate2(executionContext) {
 
 // For bcc_workerform
 function onFileChangeForWorkerForm(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_workerform").getValue();
     var dateField = formContext.getAttribute("bcc_workerformjauploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2548,11 +2459,10 @@ function onFileChangeForWorkerForm(executionContext) {
 
 // For bcc_otherdocument
 function onFileChangeForOtherDocument(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_otherdocument").getValue();
     var dateField = formContext.getAttribute("bcc_otherdocumentjauploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2600,11 +2510,10 @@ function onFileChangeForOtherDocument(executionContext) {
 
 // For bcc_passport
 function onFileChangeForPassport1(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_passport").getValue();
     var dateField = formContext.getAttribute("bcc_passportuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2614,11 +2523,10 @@ function onFileChangeForPassport1(executionContext) {
 
 // For bcc_passport2jo
 function onFileChangeForPassport2jo1(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_passport2jo").getValue();
     var dateField = formContext.getAttribute("bcc_passport2uploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2628,11 +2536,10 @@ function onFileChangeForPassport2jo1(executionContext) {
 
 // For bcc_passport3
 function onFileChangeForPassport31(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_passport3").getValue();
     var dateField = formContext.getAttribute("bcc_passport3uploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2642,11 +2549,10 @@ function onFileChangeForPassport31(executionContext) {
 
 // For bcc_otherdocument
 function onFileChangeForOtherDocument1(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_otherdocument").getValue();
     var dateField = formContext.getAttribute("bcc_otherdocumentuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2656,11 +2562,10 @@ function onFileChangeForOtherDocument1(executionContext) {
 
 // For bcc_image
 function onFileChangeForImage1(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_image").getValue();
     var dateField = formContext.getAttribute("bcc_photouploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2670,11 +2575,10 @@ function onFileChangeForImage1(executionContext) {
 
 // For bcc_degreecertificate
 function onFileChangeForDegreeCertificate1(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_degreecertificate").getValue();
     var dateField = formContext.getAttribute("bcc_degreecertificateuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2684,11 +2588,10 @@ function onFileChangeForDegreeCertificate1(executionContext) {
 
 // For bcc_degreecertificate2
 function onFileChangeForDegreeCertificate21(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_degreecertificate2").getValue();
     var dateField = formContext.getAttribute("bcc_degreecertificate2uploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2698,11 +2601,10 @@ function onFileChangeForDegreeCertificate21(executionContext) {
 
 // For bcc_workerform
 function onFileChangeForWorkerForm1(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_workerform").getValue();
     var dateField = formContext.getAttribute("bcc_workerformuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2712,11 +2614,10 @@ function onFileChangeForWorkerForm1(executionContext) {
 
 // For bcc_cancellationform
 function onFileChangeForCancellationForm1(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_cancellationform").getValue();
     var dateField = formContext.getAttribute("bcc_cancellationformuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2731,11 +2632,10 @@ function onFileChangeForCancellationForm1(executionContext) {
 
 // For bcc_preapprovalworkpermit
 function onFileChangeForPreApprovalWorkPermit(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_preapprovalworkpermit").getValue();
     var dateField = formContext.getAttribute("bcc_preapprovalworkpermitdate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2745,11 +2645,10 @@ function onFileChangeForPreApprovalWorkPermit(executionContext) {
 
 // For bcc_signedjoboffer
 function onFileChangeForSignedJobOffer(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_signedjoboffer").getValue();
     var dateField = formContext.getAttribute("bcc_signedjobofferdate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2759,11 +2658,10 @@ function onFileChangeForSignedJobOffer(executionContext) {
 
 // For bcc_joboffer
 function onFileChangeForJobOffer(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_joboffer").getValue();
     var dateField = formContext.getAttribute("bcc_jobofferdate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2773,11 +2671,10 @@ function onFileChangeForJobOffer(executionContext) {
 
 // For bcc_employeecontract
 function onFileChangeForEmployeeContract(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_employeecontract").getValue();
     var dateField = formContext.getAttribute("bcc_employeecontractdocdate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2787,11 +2684,10 @@ function onFileChangeForEmployeeContract(executionContext) {
 
 
 function onCancelDocUpload(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_canceldocument").getValue();
     var dateField = formContext.getAttribute("bcc_canceldocumentuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -2815,7 +2711,6 @@ function onCancelDocUpload(executionContext) {
 var Approval = {
 
     onChange: function (executionContext) {
-        debugger;
         if (!executionContext) {
             return;
         }
@@ -2834,15 +2729,14 @@ var Approval = {
 
         // 755700001 = Rejected
         if (value === 755700001) {
-
+            
             // Check if record is saved
             var recordId = formContext.data.entity.getId();
             if (!recordId) {
                 Xrm.Navigation.openAlertDialog({
                     title: "Save Required",
                     text: "Please save the record before rejecting."
-                }).then(function () {
-                    debugger;
+                }).then(function() {
                     // Revert the approval field
                     attr.setValue(null);
                 });
@@ -2850,7 +2744,7 @@ var Approval = {
             }
 
             Approval.showRejectDialog(formContext);
-
+            
             // Set required level
             var remarkAttr = formContext.getAttribute("bcc_rejectremark");
             if (remarkAttr) {
@@ -2867,7 +2761,6 @@ var Approval = {
     },
 
     showRejectDialog: function (formContext) {
-        debugger;
 
         var recordId = formContext.data.entity.getId();
         if (!recordId) return;
@@ -3000,13 +2893,11 @@ var Approval = {
 
             <script>
                 function cancelReject(){
-                    debugger;
                     window.opener.postMessage({ action: 'cancel' }, "*");
                     window.close();
                 }
 
                 function submitReject(){
-                    debugger;
                     var remarks = document.getElementById('rejectRemarks').value;
                     var file = document.getElementById('rejectFile').files[0];
 
@@ -3027,7 +2918,6 @@ var Approval = {
 
                     var reader = new FileReader();
                     reader.onload = function(){
-                        debugger;
                         window.opener.postMessage({
                             action: 'submit',
                             remarks: remarks,
@@ -3037,7 +2927,6 @@ var Approval = {
                         window.close();
                     };
                     reader.onerror = function(){
-                        debugger;
                         alert("Error reading file. Please try again.");
                         btn.disabled = false;
                         btn.textContent = "Submit";
@@ -3066,7 +2955,6 @@ var Approval = {
         popup.document.close();
 
         window.addEventListener("message", function (e) {
-            debugger;
             if (!e.data || !e.data.action) return;
 
             if (e.data.action === 'cancel') {
@@ -3075,7 +2963,7 @@ var Approval = {
                 if (approvalAttr) {
                     approvalAttr.setValue(null);
                 }
-
+                
                 // Remove required level
                 var remarkAttr = formContext.getAttribute("bcc_rejectremark");
                 if (remarkAttr) {
@@ -3085,7 +2973,7 @@ var Approval = {
             }
 
             if (e.data.action === 'submit') {
-
+                
                 if (!e.data.remarks || !e.data.fileBuffer) return;
 
                 // Set rejection remarks
@@ -3097,8 +2985,7 @@ var Approval = {
 
                 // Save the form first, then upload the file
                 formContext.data.save().then(function () {
-                    debugger;
-
+                    
                     uploadFileToDataverse(
                         entityName,
                         recordId,
@@ -3108,8 +2995,7 @@ var Approval = {
                         formContext
                     );
 
-                }).catch(function (error) {
-                    debugger;
+                }).catch(function(error) {
                     Xrm.Navigation.openAlertDialog({
                         title: "Save Failed",
                         text: "Could not save the record: " + error.message
@@ -3135,9 +3021,8 @@ function uploadFileToDataverse(
     formContext
 ) {
 
-    Xrm.Utility.getEntityMetadata(entityName).then(function (entityData) {
-        debugger;
-
+    Xrm.Utility.getEntityMetadata(entityName).then(function(entityData) {
+        
         var entitySetName = entityData.EntitySetName;
 
         var url =
@@ -3154,31 +3039,26 @@ function uploadFileToDataverse(
         req.setRequestHeader("x-ms-file-name", encodeURIComponent(fileName));
 
         req.onload = function () {
-            debugger;
             if (req.status === 204 || req.status === 200) {
 
                 // Refresh the file control and form immediately
                 setTimeout(function () {
-                    debugger;
 
                     // Force a complete form refresh to load the file
-                    formContext.data.refresh(true).then(function () {
-                        debugger;
-
+                    formContext.data.refresh(true).then(function() {
+                        
                         // After form refresh, refresh the file control specifically
                         var fileCtrl = formContext.getControl(columnName);
                         if (fileCtrl && typeof fileCtrl.refresh === 'function') {
-                            debugger;
                             fileCtrl.refresh();
                         }
 
                         Xrm.Navigation.openAlertDialog({
                             title: "Success",
-                            text: "Rejection details submitted successfully! The document has been uploaded. ðŸ‘"
+                            text: "Rejection details submitted successfully! The document has been uploaded. 👍"
                         });
-
-                    }).catch(function (refreshError) {
-                        debugger;
+                        
+                    }).catch(function(refreshError) {
                         // If refresh fails, still show success
                         Xrm.Navigation.openAlertDialog({
                             title: "Success",
@@ -3196,8 +3076,7 @@ function uploadFileToDataverse(
             }
         };
 
-        req.onerror = function () {
-            debugger;
+        req.onerror = function() {
             Xrm.Navigation.openAlertDialog({
                 title: "Upload Error",
                 text: "Network error occurred while uploading the file."
@@ -3206,8 +3085,7 @@ function uploadFileToDataverse(
 
         req.send(arrayBuffer);
 
-    }).catch(function (error) {
-        debugger;
+    }).catch(function(error) {
         Xrm.Navigation.openAlertDialog({
             title: "Metadata Error",
             text: "Could not retrieve entity metadata: " + error.message
@@ -3222,7 +3100,6 @@ function uploadFileToDataverse(
 
 
 function setRejectDocMandatory(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     var approvalAttr = formContext.getAttribute("bcc_approval");
@@ -3246,11 +3123,10 @@ function setRejectDocMandatory(executionContext) {
 
 // For bcc_insurancemolattachment
 function onFileChangeForInsuranceMolAttachment(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_insurancemolattachment").getValue();
     var dateField = formContext.getAttribute("bcc_insurancemolattachmentuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -3260,11 +3136,10 @@ function onFileChangeForInsuranceMolAttachment(executionContext) {
 
 // For bcc_labourfee
 function onFileChangeForLabourFee(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_labourfee").getValue();
     var dateField = formContext.getAttribute("bcc_labourfeeuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -3274,11 +3149,10 @@ function onFileChangeForLabourFee(executionContext) {
 
 // For bcc_visafee
 function onFileChangeForVisaFee(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_visafee").getValue();
     var dateField = formContext.getAttribute("bcc_visafeeuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -3288,11 +3162,10 @@ function onFileChangeForVisaFee(executionContext) {
 
 // For bcc_changestatus
 function onFileChangeForChangeStatus(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_changestatus").getValue();
     var dateField = formContext.getAttribute("bcc_changestausuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -3302,11 +3175,10 @@ function onFileChangeForChangeStatus(executionContext) {
 
 // For bcc_medicalfee
 function onFileChangeForMedicalFee(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_medicalfee").getValue();
     var dateField = formContext.getAttribute("bcc_medicalfeeuploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -3316,11 +3188,10 @@ function onFileChangeForMedicalFee(executionContext) {
 
 // For bcc_eid
 function onFileChangeForEid(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_eid").getValue();
     var dateField = formContext.getAttribute("bcc_eiduploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -3330,11 +3201,10 @@ function onFileChangeForEid(executionContext) {
 
 // For bcc_tawjeetraining
 function onFileChangeForTawjeeTraining(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_tawjeetraining").getValue();
     var dateField = formContext.getAttribute("bcc_tawjeetraininguploaddate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -3344,11 +3214,10 @@ function onFileChangeForTawjeeTraining(executionContext) {
 
 // For bcc_residencedocument
 function onFileChangeForResidenceDocument(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var fileValue = formContext.getAttribute("bcc_residencedocument").getValue();
     var dateField = formContext.getAttribute("bcc_signcontractdocdate");
-
+    
     if (fileValue != null && fileValue != "") {
         dateField.setValue(new Date());
     } else {
@@ -3358,167 +3227,258 @@ function onFileChangeForResidenceDocument(executionContext) {
 
 
 
+// ================================================
+// Job Offer Entity - D365 CRM
+// ================================================
 
-
-
-
-
-//  Register BPF stage change event on form load
-function OnLoad(executionContext) {
-    debugger;
+// ✅ RENAMED — Register this on OnLoad of ALL forms
+function OnLoadforsubstatusinjoboffer(executionContext) {
     var formContext = executionContext.getFormContext();
 
     if (formContext.data.process) {
         formContext.data.process.addOnStageChange(function (executionContext) {
-            debugger;
             OnBPFStageChange(executionContext);
         });
     }
 }
 
-//  Fires when user clicks Next Stage in BPF
+// ❌ DO NOT register anywhere — auto-called inside OnLoadforsubstatusinjoboffer
 function OnBPFStageChange(executionContext) {
-    debugger;
-    var formContext = executionContext.getFormContext();
-    var subStageAttr = formContext.getAttribute("bcc_substagestatus");
-    if (!subStageAttr) return;
-
-    var targetStages = [
-        "Insurance MOL Form",
-        "Labour Fee",
-        "Visa Fee",
-        "EID Fee",
-        "IOLE Fee",
-        "Tawjee Fee",
-        "Residency"
-    ];
-
-    var activeStageName = formContext.data.process.getActiveStage().getName();
-    if (targetStages.indexOf(activeStageName) === -1) return;
-
-    subStageAttr.setValue(755700000); // PENDING_PRO
-    formContext.data.save();
-}
-
-// Your original code â€” untouched
-function OnFileChange(executionContext) {
-    debugger;
-    var formContext = executionContext.getFormContext();
-
-    setTimeout(function () {
-        debugger;
-        if (formContext.data.getIsDirty()) {
-
-        }
-    }, 1200);
-}
-
-function OnUploadOfDOC(executionContext) {
-    debugger;
-
     var formContext = executionContext.getFormContext();
     var subStageAttr = formContext.getAttribute("bcc_substagestatus");
     if (!subStageAttr) return;
 
     var PENDING_PRO = 755700000;
-    var PENDING_HR = 755700001;
-    var COMPLETED = 755700002;
+    var PENDING_HR  = 755700001;
+    var COMPLETED   = 755700002;
 
-    var approval = formContext.getAttribute("bcc_approval")?.getValue();
-    var preApproval = formContext.getAttribute("bcc_preapprovalworkpermit")?.getValue();
+    var activeStageName = "";
+    try {
+        activeStageName = formContext.data.process.getActiveStage().getName();
+    } catch (e) {
+        return;
+    }
 
-    var jobOffer = formContext.getAttribute("bcc_joboffer")?.getValue();
-    var empContract = formContext.getAttribute("bcc_employeecontract")?.getValue();
+    var stageMap = {
+        // Pending with PRO
+        "Initial"                          : PENDING_PRO,
+        "Approval"                         : PENDING_PRO,
+        "Pre Approval Work Permit"         : PENDING_PRO,
+        "Pre approval/Job offer/contract"  : PENDING_PRO,
+        "Insurance MOL Form"               : PENDING_HR,
+        "Labour Fee"                       : PENDING_PRO,
+        "Visa Fee"                         : PENDING_PRO,
+        "Medical Fee"                      : PENDING_PRO,
+        "Medical Fee/Tawjee"               : PENDING_PRO,
+        "EID Fee"                          : PENDING_PRO,
+        "ILOE Fee"                         : PENDING_PRO,
+        "IOLE Fee"                         : PENDING_PRO,
+        "Residency"                        : PENDING_PRO,
 
-    var signedJob = formContext.getAttribute("bcc_signedjoboffer")?.getValue();
-    var signedEmp = formContext.getAttribute("bcc_signedemployeecontract")?.getValue();
+        // Pending with HR
+        "Tawjee Fee"                       : PENDING_HR,
+        "Reject"                           : PENDING_HR,
+        "Signed Offer"                     : PENDING_HR,
+        "Arrived In Country"               : PENDING_HR,
+        "Visa Outside country/Arrival date": PENDING_HR,
+        "Medical Result"                   : PENDING_HR,
+        "Change Status"                    : PENDING_HR,
 
-    var visaFee = formContext.getAttribute("bcc_visafee")?.getValue();
-    var ChangeStatus = formContext.getAttribute("bcc_changestatus")?.getValue();
+        // Process Complete
+        "Hired"                            : COMPLETED,
+        "Cancelled"                        : COMPLETED,
+    };
 
-    var medicalCert = formContext.getAttribute("bcc_medicalcertificate")?.getValue();
-    var medicalResult = formContext.getAttribute("bcc_medicalresult")?.getValue();
-    var tawajee = formContext.getAttribute("bcc_tawjiitrainingdocument")?.getValue();
-    var medicalfee = formContext.getAttribute("bcc_medicalfee")?.getValue();
-    var residency = formContext.getAttribute("bcc_residencedocument")?.getValue();
-    var eid = formContext.getAttribute("bcc_eid")?.getValue();
+    var newValue = stageMap[activeStageName];
+    if (newValue === undefined) return;
 
-    //  Residency + EID â†’ COMPLETED
+    if (subStageAttr.getValue() !== newValue) {
+        subStageAttr.setValue(newValue);
+        formContext.data.save();
+    }
+}
+
+// ✅ Register OnChange on all document/option set fields listed below
+function OnUploadOfDOC(executionContext) {
+    var formContext = executionContext.getFormContext();
+    var subStageAttr = formContext.getAttribute("bcc_substagestatus");
+    if (!subStageAttr) return;
+
+    var PENDING_PRO = 755700000;
+    var PENDING_HR  = 755700001;
+
+    // ✅ Safe getter — returns null if field doesn't exist on this form
+    function getVal(fieldName) {
+        var attr = formContext.getAttribute(fieldName);
+        return attr ? attr.getValue() : null;
+    }
+
+    var approval      = getVal("bcc_approval");       // option set: 755700000=Approval, 755700001=Reject
+    var preApproval   = getVal("bcc_preapprovalworkpermit");
+    var jobOffer      = getVal("bcc_joboffer");
+    var empContract   = getVal("bcc_employeecontract");
+    var signedJob     = getVal("bcc_signedjoboffer");
+    var signedEmp     = getVal("bcc_signcontract");    // ✅ corrected from bcc_signedemployeecontract
+    var applyVisa     = getVal("bcc_applyvisa");       // ✅ new: option set 755700000=Inside, 755700001=Outside
+    var medicalCert   = getVal("bcc_medicalcertificate");
+    var medicalResult = getVal("bcc_medicalresult");
+    var tawajee       = getVal("bcc_tawjiitrainingdocument");
+    var medicalfee    = getVal("bcc_medicalfee");
+    var residency     = getVal("bcc_residencedocument");
+    var eid           = getVal("bcc_eid");
+    var iloe          = getVal("bcc_iloe");
+    var ChangeStatus  = getVal("bcc_changestatus");
+
+    // -----------------------------------------------
+    // Residency → Pending with PRO
+    // -----------------------------------------------
     if (residency) {
-        subStageAttr.setValue(COMPLETED);
+        subStageAttr.setValue(PENDING_PRO);
         return;
     }
+
+    // -----------------------------------------------
+    // EID → Pending with PRO
+    // -----------------------------------------------
     if (eid) {
-        subStageAttr.setValue(COMPLETED);
-    }
-
-    // Medical Result + Tawajee â†’ PENDING PRO
-    if (medicalResult) {
         subStageAttr.setValue(PENDING_PRO);
         return;
     }
+
+    // -----------------------------------------------
+    // ILOE → Pending with PRO
+    // -----------------------------------------------
+    if (iloe) {
+        subStageAttr.setValue(PENDING_PRO);
+        return;
+    }
+
+    // -----------------------------------------------
+    // Tawjee → Pending with HR
+    // -----------------------------------------------
     if (tawajee) {
+        subStageAttr.setValue(PENDING_HR);
+        return;
+    }
+
+    // -----------------------------------------------
+    // Medical Result → Pending with HR
+    // -----------------------------------------------
+    if (medicalResult) {
+        subStageAttr.setValue(PENDING_HR);
+        return;
+    }
+
+    // -----------------------------------------------
+    // Medical Fee → Pending with PRO
+    // -----------------------------------------------
+    if (medicalfee) {
         subStageAttr.setValue(PENDING_PRO);
         return;
     }
 
-    //  Medical Certificate â†’ PENDING PRO
+    // -----------------------------------------------
+    // Medical Certificate → Pending with PRO
+    // -----------------------------------------------
     if (medicalCert) {
         subStageAttr.setValue(PENDING_PRO);
         return;
     }
 
-    //  Visa Fee + ChangeStatus â†’ PENDING HR
-    if (visaFee) {
+    // -----------------------------------------------
+    // Visa Outside Country → Pending with HR
+    // Visa Inside Country → Pending with PRO
+    // ✅ NEW: bcc_applyvisa option set
+    // -----------------------------------------------
+    if (applyVisa !== null) {
+        if (applyVisa === 755700001) {         // Outside Country
+            subStageAttr.setValue(PENDING_HR);
+        } else if (applyVisa === 755700000) {  // Inside Country
+            subStageAttr.setValue(PENDING_PRO);
+        }
+        return;
+    }
+
+    // -----------------------------------------------
+    // Visa Outside/Arrival date → Pending with HR
+    // -----------------------------------------------
+    if (ChangeStatus) {
         subStageAttr.setValue(PENDING_HR);
         return;
     }
-    if (ChangeStatus) {
+
+    // -----------------------------------------------
+    // Sign offer/contract
+    // signedJob → Pending with HR ✅
+    // signedEmp (bcc_signcontract) → Pending with HR ✅
+    // -----------------------------------------------
+    if (signedJob) {
         subStageAttr.setValue(PENDING_HR);
+        return;
+    }
+    if (signedEmp) {
+        subStageAttr.setValue(PENDING_HR);
+        return;
     }
 
-    //  Signed Job + Signed Contract â†’ PENDING PRO
-    if (signedJob && signedEmp) {
+    // -----------------------------------------------
+    // Job Offer uploaded → Pending with PRO ✅
+    // -----------------------------------------------
+    if (jobOffer) {
         subStageAttr.setValue(PENDING_PRO);
         return;
     }
 
-    //  Job Offer + Employee Contract â†’ PENDING HR
-    if (jobOffer && empContract) {
-        subStageAttr.setValue(PENDING_HR);
+    // -----------------------------------------------
+    // Employee Contract uploaded → Pending with PRO ✅
+    // -----------------------------------------------
+    if (empContract) {
+        subStageAttr.setValue(PENDING_PRO);
         return;
     }
 
-    //  Pre-Approval Work Permit â†’ PENDING PRO
+    // -----------------------------------------------
+    // Pre Approval Work Permit → Pending with PRO ✅
+    // -----------------------------------------------
     if (preApproval) {
         subStageAttr.setValue(PENDING_PRO);
         return;
     }
-    if (medicalfee == null) {
-        subStageAttr.setValue(PENDING_PRO);
-        return;
-    }
-    if (medicalfee !== null && medicalResult == null) {
-        subStageAttr.setValue(PENDING_HR);
-        return;
-    }
-    if (medicalResult == null) {
-        subStageAttr.setValue(PENDING_HR);
-        return;
-    }
 
-    //  Approval = Approved â†’ PENDING PRO
+    // -----------------------------------------------
+    // Approval option set
+    // 755700000 = Approved → Pending with PRO ✅
+    // 755700001 = Reject   → Pending with HR  ✅
+    // -----------------------------------------------
     if (approval === 755700000) {
         subStageAttr.setValue(PENDING_PRO);
         return;
     }
+    if (approval === 755700001) {
+        subStageAttr.setValue(PENDING_HR);
+        return;
+    }
+
+    // -----------------------------------------------
+    // Initial fallback → Pending with PRO
+    // -----------------------------------------------
+    subStageAttr.setValue(PENDING_PRO);
+}
+
+// Kept as is — empty placeholder, do not register
+function OnFileChange(executionContext) {
+    var formContext = executionContext.getFormContext();
+    setTimeout(function () {
+        if (formContext.data.getIsDirty()) {
+            // placeholder
+        }
+    }, 1200);
 }
 
 
 
 
 function onBPFStageChangetocompletee(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     var activeStage = formContext.data.process.getActiveStage();
@@ -3548,15 +3508,12 @@ function onBPFStageChangetocompletee(executionContext) {
         "statecode": 0
     }).then(
         function success() {
-            debugger;
             console.log("Status Reason updated to Completed successfully.");
-            setTimeout(function () {
-                debugger;
+            setTimeout(function() {
                 window.location.reload();
             }, 1500);
         },
         function error(err) {
-            debugger;
             console.error("Error: " + err.message);
             Xrm.Navigation.openAlertDialog({ text: "Error: " + err.message });
         }
@@ -3572,7 +3529,6 @@ function onBPFStageChangetocompletee(executionContext) {
 
 
 function setStatusOnStageChanges(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
 
@@ -3582,7 +3538,6 @@ function setStatusOnStageChanges(executionContext) {
     }
 
     formContext.data.process.addOnStageChange(function (stageContext) {
-        debugger;
 
         try {
 
@@ -3613,11 +3568,9 @@ function setStatusOnStageChanges(executionContext) {
 
                     formContext.data.save().then(
                         function () {
-                            debugger;
                             console.log("Status Reason updated successfully.");
                         },
                         function (error) {
-                            debugger;
                             console.log("Error saving form: " + error.message);
                         }
                     );
@@ -3635,31 +3588,28 @@ function setStatusOnStageChanges(executionContext) {
 
 
 function onStatusCodeChange(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var statusCodeValue = formContext.getAttribute("statuscode").getValue();
 
     if (statusCodeValue === 100000000) {
 
         var entityName = formContext.data.entity.getEntityName();
-
+        
         // Fix - properly clean the GUID
         var rawId = formContext.data.entity.getId();
         var entityId = rawId.replace(/[{}]/g, "").trim();
-
+        
         alert("Entity: " + entityName + " | ID: " + entityId);
 
         Xrm.WebApi.updateRecord(entityName, entityId, {
             "statecode": 1,
             "statuscode": 100000000
         }).then(
-            function () {
-                debugger;
+            function() {
                 alert("SUCCESS - Record Deactivated!");
                 formContext.data.refresh(false);
             },
-            function (error) {
-                debugger;
+            function(error) {
                 alert("FAILED - " + error.message);
             }
         );
@@ -3668,7 +3618,6 @@ function onStatusCodeChange(executionContext) {
 
 
 function setStatusOnBPFCompletess(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
 
@@ -3691,7 +3640,6 @@ function setStatusOnBPFCompletess(executionContext) {
 
     // ----- REGISTER PROCESS STATUS CHANGE EVENT -----
     formContext.data.process.addOnProcessStatusChange(function () {
-        debugger;
 
         try {
 
@@ -3719,11 +3667,9 @@ function setStatusOnBPFCompletess(executionContext) {
 
                     formContext.data.save().then(
                         function () {
-                            debugger;
                             console.log("Status updated to Hired successfully.");
                         },
                         function (error) {
-                            debugger;
                             console.log("Error saving form: " + error.message);
                         }
                     );
@@ -3738,7 +3684,6 @@ function setStatusOnBPFCompletess(executionContext) {
 }
 
 function setStatusOnBPFCompletes(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
 
@@ -3761,7 +3706,6 @@ function setStatusOnBPFCompletes(executionContext) {
 
     // ----- REGISTER PROCESS STATUS CHANGE EVENT -----
     formContext.data.process.addOnProcessStatusChange(function () {
-        debugger;
 
         try {
 
@@ -3803,11 +3747,9 @@ function setStatusOnBPFCompletes(executionContext) {
 
                     formContext.data.save().then(
                         function () {
-                            debugger;
                             console.log("State and Status updated to Hired successfully.");
                         },
                         function (error) {
-                            debugger;
                             console.log("Error saving form: " + error.message);
                         }
                     );
@@ -3825,13 +3767,11 @@ function setStatusOnBPFCompletes(executionContext) {
 
 
 var BPFControlvisafee = (function () {
-    debugger;
     var visaFeeStageName = "Visa Fee";
     var targetFormId = "5b8da095-5ef0-f011-8406-70a8a52260b1".toLowerCase();
 
     // Check if BPF is fully completed
     function isBPFCompleted(formContext) {
-        debugger;
         try {
             var process = formContext.data.process;
             if (!process) return false;
@@ -3844,7 +3784,6 @@ var BPFControlvisafee = (function () {
 
     // Check if current stage is Visa Fee or beyond using getActivePath()
     function isVisaFeeOrBeyond(formContext) {
-        debugger;
         try {
             var process = formContext.data.process;
             if (!process) return false;
@@ -3879,7 +3818,6 @@ var BPFControlvisafee = (function () {
 
     // Hide all form options except the current one (blocks form switching)
     function lockFormSwitcher(formContext) {
-        debugger;
         try {
             var formSelector = formContext.ui.formSelector;
             var currentFormId = formSelector.getCurrentItem().getId().toLowerCase();
@@ -3887,7 +3825,6 @@ var BPFControlvisafee = (function () {
             if (!items) return;
 
             items.forEach(function (item) {
-                debugger;
                 if (item.getId().toLowerCase() !== currentFormId) {
                     item.setVisible(false);
                 }
@@ -3899,14 +3836,12 @@ var BPFControlvisafee = (function () {
 
     // Show all forms (unlock when BPF is complete)
     function unlockFormSwitcher(formContext) {
-        debugger;
         try {
             var formSelector = formContext.ui.formSelector;
             var items = formSelector.items;
             if (!items) return;
 
             items.forEach(function (item) {
-                debugger;
                 item.setVisible(true);
             });
         } catch (e) {
@@ -3915,25 +3850,23 @@ var BPFControlvisafee = (function () {
     }
 
     function onLoad(executionContext) {
-        debugger;
         var formContext = executionContext.getFormContext();
         var process = formContext.data.process;
         if (!process) return;
 
-        // On load â€” if BPF is complete, unlock everything and stop
+        // On load — if BPF is complete, unlock everything and stop
         if (isBPFCompleted(formContext)) {
             unlockFormSwitcher(formContext);
             return;
         }
 
-        // On load â€” if already at Visa Fee or beyond, lock form switcher immediately
+        // On load — if already at Visa Fee or beyond, lock form switcher immediately
         if (isVisaFeeOrBeyond(formContext)) {
             lockFormSwitcher(formContext);
         }
 
         // Block Previous stage navigation when at Visa Fee stage
         process.addOnPreStageChange(function (stageContext) {
-            debugger;
             var eventArgs = stageContext.getEventArgs();
             var direction = eventArgs.getDirection();
             var activeStage = process.getActiveStage();
@@ -3955,9 +3888,8 @@ var BPFControlvisafee = (function () {
             }
         });
 
-        // When stage changes â€” check if Visa Fee reached â†’ lock, or BPF complete â†’ unlock
+        // When stage changes — check if Visa Fee reached → lock, or BPF complete → unlock
         process.addOnStageChange(function () {
-            debugger;
             if (isBPFCompleted(formContext)) {
                 unlockFormSwitcher(formContext);
             } else if (isVisaFeeOrBeyond(formContext)) {
@@ -3978,17 +3910,16 @@ var BPFControlvisafee = (function () {
 
 
 function moveToMOLVerificationStage(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var empVerAttr = formContext.getAttribute("bcc_employerverification");
 
     if (!empVerAttr) {
-
+        
         return;
     }
 
     var empVerValue = empVerAttr.getValue();
-
+    
 
     if (empVerValue === 755700001) {
 
@@ -3996,20 +3927,19 @@ function moveToMOLVerificationStage(executionContext) {
         var statusAttr = formContext.getAttribute("statuscode");
         if (statusAttr) {
             statusAttr.setValue(100000000);
-
+            
         } else {
-
+           
         }
 
         //  SAVE FIRST to clear dirty form, THEN move stage
         formContext.data.save().then(function () {
-            debugger;
-
+          
 
             var activeProcess = formContext.data.process.getActiveProcess();
 
             if (!activeProcess) {
-
+               
                 return;
             }
 
@@ -4025,64 +3955,60 @@ function moveToMOLVerificationStage(executionContext) {
                 }
             }
 
-
+           
 
             if (!targetStage) {
-
+                
                 return;
             }
 
-
+            
 
             var currentStage = formContext.data.process.getActiveStage();
+            
 
-
-            //  Now move backwards â€” form is clean so dirtyForm error won't happen
+            //  Now move backwards — form is clean so dirtyForm error won't happen
             function moveToPreviousStageById(targetStageId, callback) {
-                debugger;
                 var currentStage = formContext.data.process.getActiveStage();
 
                 if (!currentStage) {
-
+                   
                     callback("error: no active stage");
                     return;
                 }
 
-
+               
 
                 if (currentStage.getId().toLowerCase() === targetStageId.toLowerCase()) {
-
+                   
                     callback("success");
                     return;
                 }
 
                 formContext.data.process.movePrevious(function (result) {
-                    debugger;
-
+                    
                     if (result === "success") {
                         moveToPreviousStageById(targetStageId, callback);
                     } else {
-
+                        
                         callback("error: movePrevious failed");
                     }
                 });
             }
 
             moveToPreviousStageById(targetStage.getId(), function (result) {
-                debugger;
                 if (result === "success") {
-
+                   
                     formContext.data.save();
                 } else {
-
+                    
                 }
             });
 
         }).catch(function (error) {
-            debugger;
             alert(" ERROR: Form save failed!\nReason: " + (error && error.message ? error.message : JSON.stringify(error)));
         });
-    }
+    } 
 }
 
 
@@ -4094,7 +4020,6 @@ function moveToMOLVerificationStage(executionContext) {
 
 
 async function setManpowerQuotaFromJobApplication(executionContext) {
-    debugger;
     const formContext = executionContext.getFormContext();
 
     // Step 1: Get the Job Application lookup value from Job Offer
@@ -4118,7 +4043,7 @@ async function setManpowerQuotaFromJobApplication(executionContext) {
         const designation = result["bcc_DesignationAsPerVisa"];
 
         if (!designation || !designation["bcc_manpowerquotaid"]) {
-            // null â€” do nothing
+            // null — do nothing
             return;
         }
 
@@ -4143,7 +4068,6 @@ async function setManpowerQuotaFromJobApplication(executionContext) {
 var isAdvancing = false;
 
 function autoAdvanceBPF(executionContext) {
-    debugger;
     if (isAdvancing) return;
 
     // Block immediately before anything else
@@ -4191,15 +4115,13 @@ function autoAdvanceBPF(executionContext) {
 
         if (currentStageId === LAST_STAGE_GUID.toLowerCase()) { isAdvancing = false; return; }
 
-        var isValidStage = validStageGuids.some(function (guid) {
-            debugger;
+        var isValidStage = validStageGuids.some(function(guid) {
             return guid.toLowerCase() === currentStageId;
         });
 
         if (!isValidStage) { isAdvancing = false; return; }
 
-        formContext.data.process.moveNext(function (result) {
-            debugger;
+        formContext.data.process.moveNext(function(result) {
             if (result === "success") {
 
                 var nextStage = formContext.data.process.getActiveStage();
@@ -4214,11 +4136,9 @@ function autoAdvanceBPF(executionContext) {
                         entityName: entityName,
                         entityId: recordId,
                         formId: nextFormId
-                    }).then(function () {
-                        debugger;
+                    }).then(function() {
                         isAdvancing = false;
-                    }, function () {
-                        debugger;
+                    }, function() {
                         isAdvancing = false;
                     });
                 } else {
@@ -4239,23 +4159,21 @@ function autoAdvanceBPF(executionContext) {
 
 
 function onApprovalChangee(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
     var approvalField = formContext.getAttribute("bcc_approval");
     if (approvalField == null) return;
     var approvalValue = approvalField.getValue();
 
     if (approvalValue === 755700001) {
-        // REJECT â€” Next/Finish button hide karo
+        // REJECT — Next/Finish button hide karo
         hideProcessButtons();
     } else {
-        // APPROVE â€” buttons wapas dikhao
+        // APPROVE — buttons wapas dikhao
         showProcessButtons();
     }
 }
 
 function hideProcessButtons() {
-    debugger;
     var style = document.getElementById("bcc-process-style");
     if (!style) {
         style = document.createElement("style");
@@ -4266,7 +4184,6 @@ function hideProcessButtons() {
 }
 
 function showProcessButtons() {
-    debugger;
     var style = document.getElementById("bcc-process-style");
     if (style) {
         style.innerHTML = "";
@@ -4274,7 +4191,6 @@ function showProcessButtons() {
 }
 
 function onFormmLoad(executionContext) {
-    debugger;
     onApprovalChangee(executionContext);
 }
 
@@ -4285,7 +4201,6 @@ function onFormmLoad(executionContext) {
 
 
 function toggleRejectFieldsRequirementt(executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     var approvalField = formContext.getAttribute("bcc_approval");
@@ -4298,12 +4213,12 @@ function toggleRejectFieldsRequirementt(executionContext) {
 
     if (!remarkField || !docField) return;
 
-    // If approval = 755700001 â†’ make mandatory
+    // If approval = 755700001 → make mandatory
     if (approvalValue === 755700001) {
         remarkField.setRequiredLevel("required");
         docField.setRequiredLevel("required");
     }
-    // If approval = 755700000 â†’ make optional
+    // If approval = 755700000 → make optional
     else if (approvalValue === 755700000) {
         remarkField.setRequiredLevel("none");
         docField.setRequiredLevel("none");
@@ -4324,13 +4239,11 @@ function toggleRejectFieldsRequirementt(executionContext) {
 
 
 function BPFStageFormHandler(executionContext) {
-    debugger;
 
     var formContext = executionContext.getFormContext();
     if (!formContext.data.process) return;
 
     function switchForm() {
-        debugger;
 
         var stage = formContext.data.process.getActiveStage();
         if (!stage) return;
@@ -4342,8 +4255,6 @@ function BPFStageFormHandler(executionContext) {
 
         var targetFormId = null;
         var statusValue = null; //  added
-        var stateCode = formContext.getAttribute("statecode").getValue();
-        if (stateCode === 1) return;
 
         //  Your exact logic (UNCHANGED, only status added)
         if (stageName === "Initialization" || stageName === "Approval") {
@@ -4373,7 +4284,6 @@ function BPFStageFormHandler(executionContext) {
         if (currentFormId.toLowerCase() === targetFormId.toLowerCase()) return;
 
         setTimeout(function () {
-            debugger;
 
             var forms = formContext.ui.formSelector.items.get();
 
@@ -4407,7 +4317,6 @@ function BPFStageFormHandler(executionContext) {
 var BPFStageControl = BPFStageControl || {};
 
 BPFStageControl.onLoad = function (executionContext) {
-    debugger;
     var formContext = executionContext.getFormContext();
 
     // Clear notifications on load
@@ -4417,7 +4326,6 @@ BPFStageControl.onLoad = function (executionContext) {
     var approvalField = formContext.getAttribute("bcc_approval");
     if (approvalField) {
         approvalField.addOnChange(function () {
-            debugger;
             var value = approvalField.getValue();
             if (value === 755700000) {
                 formContext.ui.clearFormNotification("bcc_approval_block");
@@ -4430,7 +4338,6 @@ BPFStageControl.onLoad = function (executionContext) {
 };
 
 BPFStageControl.hookBPFNextStageButton = function (formContext) {
-    debugger;
     try {
         var process = formContext.data.process;
 
@@ -4450,12 +4357,10 @@ BPFStageControl.hookBPFNextStageButton = function (formContext) {
 
         // Add OnStageSelected event (fires when user tries to move stage)
         process.addOnStageChange(function (executionContext) {
-            debugger;
             BPFStageControl.handleStageChange(executionContext, formContext);
         });
 
         process.addOnPreStageChange(function (executionContext) {
-            debugger;
             BPFStageControl.handlePreStageChange(executionContext, formContext);
         });
 
@@ -4465,7 +4370,6 @@ BPFStageControl.hookBPFNextStageButton = function (formContext) {
 };
 
 BPFStageControl.handlePreStageChange = function (executionContext, formContext) {
-    debugger;
     try {
         var eventArgs = executionContext.getEventArgs();
         var direction = eventArgs.getDirection(); // "Next" or "Previous"
@@ -4487,12 +4391,12 @@ BPFStageControl.handlePreStageChange = function (executionContext, formContext) 
         var approvalValue = approvalField.getValue();
 
         if (approvalValue === 755700000) {
-            // Approved â€” allow movement, navigate to target form
+            // Approved — allow movement, navigate to target form
             formContext.ui.clearFormNotification("bcc_approval_block");
             BPFStageControl.navigateToTargetForm(formContext);
 
         } else if (approvalValue === 755700001) {
-            // Rejected â€” block
+            // Rejected — block
             eventArgs.preventDefault();
             formContext.ui.setFormNotification(
                 "Stage cannot be advanced. The Approval status is 'Not Approved'. Please get approval before proceeding.",
@@ -4501,7 +4405,7 @@ BPFStageControl.handlePreStageChange = function (executionContext, formContext) 
             );
 
         } else {
-            // Null / not set â€” block
+            // Null / not set — block
             eventArgs.preventDefault();
             formContext.ui.setFormNotification(
                 "Please set the Approval field to 'Approved' before moving to the next stage.",
@@ -4516,7 +4420,6 @@ BPFStageControl.handlePreStageChange = function (executionContext, formContext) 
 };
 
 BPFStageControl.handleStageChange = function (executionContext, formContext) {
-    debugger;
     try {
         var eventArgs = executionContext.getEventArgs();
         var newStage = eventArgs.getStage();
@@ -4534,7 +4437,6 @@ BPFStageControl.handleStageChange = function (executionContext, formContext) {
 };
 
 BPFStageControl.navigateToTargetForm = function (formContext) {
-    debugger;
     try {
         var targetFormId = "778573dd-2ce6-f011-8406-70a8a51e50d4";
 
@@ -4548,7 +4450,6 @@ BPFStageControl.navigateToTargetForm = function (formContext) {
         var targetForm = null;
 
         availableForms.forEach(function (form) {
-            debugger;
             if (form.getId().toLowerCase() === targetFormId.toLowerCase()) {
                 targetForm = form;
             }
@@ -4565,3 +4466,158 @@ BPFStageControl.navigateToTargetForm = function (formContext) {
         console.log("Error navigating to form: " + e.message);
     }
 };
+
+
+
+// ============================================================
+// BPF Approval Validation
+// Field: bcc_approval | Approve: 755700000 | Reject: 755700001
+// Target Stage: Reject Stage | ID: 8ac4802e-b706-437a-af5c-e0f0b070324c
+// ============================================================
+
+var BPF_ApprovalValidation = BPF_ApprovalValidation || {};
+
+BPF_ApprovalValidation.targetStageId = "8ac4802e-b706-437a-af5c-e0f0b070324c";
+
+BPF_ApprovalValidation.onLoad = function (executionContext) {
+    var formContext = executionContext.getFormContext();
+
+    // onChange register karo
+    var approvalField = formContext.getAttribute("bcc_approval");
+    if (approvalField) {
+        approvalField.addOnChange(BPF_ApprovalValidation.onChange);
+    }
+
+    // PreStageChange — flag hatao, har baar register karo
+    var processContext = formContext.data.process;
+    if (processContext) {
+        // Pehle remove karo agar already registered hai
+        processContext.removeOnPreStageChange(BPF_ApprovalValidation.onPreStageChange);
+        // Ab fresh register karo
+        processContext.addOnPreStageChange(BPF_ApprovalValidation.onPreStageChange);
+        console.log("PreStageChange handler registered!");
+    } else {
+        console.log("ERROR: processContext null hai — BPF is form se linked nahi!");
+    }
+};
+// -------------------------------------------------------
+// ON PRE STAGE CHANGE — Reject Stage se aage jane se rokna
+// -------------------------------------------------------
+BPF_ApprovalValidation.onPreStageChange = function (executionContext) {
+    var eventArgs = executionContext.getEventArgs();
+
+    // Sirf Next direction check karo
+    var direction = eventArgs.getDirection ? eventArgs.getDirection() : null;
+    if (direction && direction !== "Next") return;
+
+    // Active stage directly event se lo — formContext se nahi
+    var activeStage = eventArgs.getStage ? eventArgs.getStage() : null;
+    if (!activeStage) return;
+
+    var currentStageId = activeStage.getId().toLowerCase();
+
+    console.log("PreStageChange fired - Current Stage ID: " + currentStageId);
+    console.log("Target Stage ID: " + BPF_ApprovalValidation.targetStageId.toLowerCase());
+
+    // Sirf Reject Stage pe check karo
+    if (currentStageId !== BPF_ApprovalValidation.targetStageId.toLowerCase()) return;
+
+    // Approval field value lo
+    var formContext = executionContext.getFormContext();
+    var approvalField = formContext.getAttribute("bcc_approval");
+    if (!approvalField) return;
+
+    var approvalValue = approvalField.getValue();
+    console.log("Approval Value: " + approvalValue);
+
+    if (approvalValue !== 755700000) {
+        eventArgs.preventDefault(); // Next stage block
+
+        Xrm.Navigation.openAlertDialog({
+            title: "Stage Progression Blocked",
+            text: "You cannot move to the next stage. Please set the 'Approval' field to 'Approve' before proceeding."
+        });
+    }
+};
+
+// -------------------------------------------------------
+// ON CHANGE — Warn when Reject selected on Reject Stage
+// -------------------------------------------------------
+BPF_ApprovalValidation.onChange = function (executionContext) {
+    var formContext = executionContext.getFormContext();
+    var processContext = formContext.data.process;
+    if (!processContext) return;
+
+    var activeStage = processContext.getActiveStage();
+    if (!activeStage) return;
+
+    var currentStageId = activeStage.getId().toLowerCase();
+    if (currentStageId !== BPF_ApprovalValidation.targetStageId.toLowerCase()) return;
+
+    var approvalField = formContext.getAttribute("bcc_approval");
+    if (!approvalField) return;
+
+    if (approvalField.getValue() === 755700001) {
+        Xrm.Navigation.openAlertDialog({
+            title: "Approval Required",
+            text: "Approval is set to 'Reject'. Please set it to 'Approve' to move to the next stage."
+        });
+    }
+};
+
+// -------------------------------------------------------
+// ON SAVE — Reminder only, save allowed
+// -------------------------------------------------------
+BPF_ApprovalValidation.onSave = function (executionContext) {
+    var formContext = executionContext.getFormContext();
+    var processContext = formContext.data.process;
+    if (!processContext) return;
+
+    var activeStage = processContext.getActiveStage();
+    if (!activeStage) return;
+
+    var currentStageId = activeStage.getId().toLowerCase();
+    if (currentStageId !== BPF_ApprovalValidation.targetStageId.toLowerCase()) return;
+
+    var approvalField = formContext.getAttribute("bcc_approval");
+    if (!approvalField) return;
+
+    if (approvalField.getValue() === 755700001) {
+        Xrm.Navigation.openAlertDialog({
+            title: "Reminder",
+            text: "Approval is 'Reject'. You cannot move to next stage until it is changed to 'Approve'."
+        });
+    }
+};
+
+
+
+
+
+function setSubStageOnStateChangee(executionContext) {
+    var formContext = executionContext.getFormContext();
+    if (!formContext) return;
+
+    applySubStageLogicc(formContext);
+}
+
+
+function applySubStageLogicc(formContext) {
+
+    var stateAttr = formContext.getAttribute("statecode");
+    var subStageAttr = formContext.getAttribute("bcc_substagestatus");
+
+    if (!stateAttr || !subStageAttr) return;
+
+    var stateValue = stateAttr.getValue();
+
+    //  Condition: If statecode = 1 (Inactive)
+    if (stateValue === 1) {
+        subStageAttr.setValue(755700002);
+        subStageAttr.setSubmitMode("always");
+    }
+}
+
+
+
+

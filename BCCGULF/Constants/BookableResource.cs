@@ -96,6 +96,10 @@ namespace BCCGULF.Constants
         public const string JoiningDate = "new_dateofjoining";
         /// <summary>Type: DateTime, RequiredLevel: None, Format: DateOnly, DateTimeBehavior: TimeZoneIndependent</summary>
         public const string LabourCardExpiry = "bcc_labourcardexpiry";
+        /// <summary>Type: DateTime, RequiredLevel: None</summary>
+        public const string LeaveEndDate = "bcc_leaveenddate";
+        /// <summary>Type: DateTime, RequiredLevel: None</summary>
+        public const string LeaveStartDate = "bcc_leavestartdate";
         /// <summary>Type: String, RequiredLevel: None, MaxLength: 100, Format: Text</summary>
         public const string LabourCardNo = "bcc_labourcardno";
         /// <summary>Type: Lookup, RequiredLevel: None, Targets: systemuser</summary>

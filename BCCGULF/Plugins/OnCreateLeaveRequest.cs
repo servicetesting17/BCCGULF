@@ -7,6 +7,9 @@ namespace BCCGULF.Plugins
 {
     public class OnCreateLeaveRequest : IPlugin
     {
+        private const int ProbationDays = 180;
+        private static readonly string[] ProbationAllowedLeaveTypes = { "Unpaid Leave", "Unpaid Sick Leave", "Emergency Leave- Staff", "Emergency Leave- Worker" };
+
         public void Execute(IServiceProvider serviceProvider)
         {
             var tracingService = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
@@ -51,6 +54,9 @@ namespace BCCGULF.Plugins
                     : 0m;
 
                 tracingService.Trace("LeaveDays requested: {0}", leaveDays);
+
+                // ── Step 2a: Within 180 days of joining only Unpaid Leave / Unpaid Sick Leave / Emergency Leave are allowed ──
+                ValidateProbationLeaveType(service, target, bookableResourceRef, leaveTypeRef, tracingService);
 
                 // ── Step 3: Query Leave Balance matching BookableResource AND LeaveType ──
                 string fetchXml = string.Format(@"
@@ -287,8 +293,66 @@ namespace BCCGULF.Plugins
         }
 
         /// <summary>
+        /// Blocks every leave type except Unpaid Leave, Unpaid Sick Leave and Emergency Leave when the leave starts
+        /// within 180 days of the resource's joining date. Uses today when the leave has no start time.
+        /// </summary>
+        private static void ValidateProbationLeaveType(IOrganizationService service, Entity target,
+            EntityReference bookableResourceRef, EntityReference leaveTypeRef, ITracingService tracingService)
+        {
+            var resource = service.Retrieve(BookableResource.EntityName, bookableResourceRef.Id,
+                new ColumnSet(BookableResource.JoiningDate, BookableResource.DateofJoining));
+
+            // Same joining date fields and timezone adjustment as GenerateLeaveBalance
+            DateTime? joiningDate = resource.GetAttributeValue<DateTime?>(BookableResource.JoiningDate)
+                ?? resource.GetAttributeValue<DateTime?>(BookableResource.DateofJoining);
+
+            if (!joiningDate.HasValue)
+            {
+                tracingService.Trace("Joining Date is not set. Skipping probation leave type validation.");
+                return;
+            }
+
+            DateTime joined = joiningDate.Value.AddHours(6).Date;
+            DateTime leaveStart = (target.GetAttributeValue<DateTime?>(LeaveRequest.StartTime) ?? DateTime.UtcNow).AddHours(6).Date;
+            int daysSinceJoining = (leaveStart - joined).Days;
+
+            tracingService.Trace("Joining Date: {0:yyyy-MM-dd}, Leave Start: {1:yyyy-MM-dd}, Days since joining: {2}",
+                joined, leaveStart, daysSinceJoining);
+
+            if (daysSinceJoining >= ProbationDays)
+                return;
+
+            string leaveTypeName = leaveTypeRef.Name;
+            if (string.IsNullOrEmpty(leaveTypeName))
+            {
+                var leaveTypeEntity = service.Retrieve(LeaveType.EntityName, leaveTypeRef.Id, new ColumnSet(LeaveType.PrimaryName));
+                leaveTypeName = leaveTypeEntity.GetAttributeValue<string>(LeaveType.PrimaryName) ?? string.Empty;
+            }
+
+            foreach (string allowed in ProbationAllowedLeaveTypes)
+            {
+                if (string.Equals(leaveTypeName.Trim(), allowed, StringComparison.OrdinalIgnoreCase))
+                    return;
+            }
+
+            tracingService.Trace("Leave type '{0}' is not allowed within {1} days of joining.", leaveTypeName, ProbationDays);
+            throw new InvalidPluginExecutionException(string.Format(
+                "Within the first {0} days of joining (joined {1:dd/MM/yyyy}) only {2} can be applied. Eligible for {3} from {4:dd/MM/yyyy}.",
+                ProbationDays, joined, FormatLeaveTypeList(ProbationAllowedLeaveTypes), leaveTypeName, joined.AddDays(ProbationDays)));
+        }
+
+        /// <summary>Formats names as "A, B or C".</summary>
+        private static string FormatLeaveTypeList(string[] names)
+        {
+            if (names.Length < 2)
+                return string.Join(string.Empty, names);
+
+            return string.Join(", ", names, 0, names.Length - 1) + " or " + names[names.Length - 1];
+        }
+
+        /// <summary>
         /// Returns the Annual Leave days still to be credited from the resource's Projected Leaves,
-        /// i.e. active projected months after the current month and up to the leave end month × the monthly accrual rate.
+        /// i.e. the sum of Days on active projected months after the current month and up to the leave end month.
         /// Returns 0 when the leave type is not Annual Leave.
         /// </summary>
         private static decimal GetProjectedAnnualLeaveBalance(IOrganizationService service, EntityReference bookableResourceRef,
@@ -304,14 +368,9 @@ namespace BCCGULF.Plugins
             if (leaveTypeName.IndexOf("Annual Leave", StringComparison.OrdinalIgnoreCase) < 0)
                 return 0m;
 
-            // Same monthly accrual rate as GenerateLeaveBalance
-            var resource = service.Retrieve(BookableResource.EntityName, bookableResourceRef.Id, new ColumnSet(BookableResource.Type));
-            var typeValue = resource.GetAttributeValue<OptionSetValue>(BookableResource.Type);
-            decimal monthlyRate = typeValue != null && typeValue.Value == 100000001 ? 1.83m : 2.5m;
-
             var query = new QueryExpression(ProjectedLeaves.EntityName)
             {
-                ColumnSet = new ColumnSet(ProjectedLeaves.Month, ProjectedLeaves.Year)
+                ColumnSet = new ColumnSet(ProjectedLeaves.Month, ProjectedLeaves.Year, ProjectedLeaves.Days)
             };
             query.Criteria.AddCondition(ProjectedLeaves.Status, ConditionOperator.Equal, (int)ProjectedLeaves.Status_OptionSet.Active);
             query.Criteria.AddCondition(ProjectedLeaves.BookableResource, ConditionOperator.Equal, bookableResourceRef.Id);
@@ -322,6 +381,7 @@ namespace BCCGULF.Plugins
             int currentPeriod = today.Year * 12 + today.Month;
             int endPeriod = leaveEndTime.Year * 12 + leaveEndTime.Month;
             int futureMonths = 0;
+            decimal projectedBalance = 0m;
 
             foreach (var projectedLeave in projectedLeaves.Entities)
             {
@@ -332,12 +392,14 @@ namespace BCCGULF.Plugins
 
                 int period = year * 12 + month;
                 if (period > currentPeriod && period <= endPeriod)
+                {
                     futureMonths++;
+                    projectedBalance += projectedLeave.GetAttributeValue<decimal?>(ProjectedLeaves.Days) ?? 0m;
+                }
             }
 
-            decimal projectedBalance = futureMonths * monthlyRate;
-            tracingService.Trace("Projected Leaves - Future months up to {0}: {1}, Monthly rate: {2}, Projected balance: {3}",
-                leaveEndTime.ToString("yyyy-MM"), futureMonths, monthlyRate, projectedBalance);
+            tracingService.Trace("Projected Leaves - Future months up to {0}: {1}, Projected balance: {2}",
+                leaveEndTime.ToString("yyyy-MM"), futureMonths, projectedBalance);
 
             return projectedBalance;
         }

@@ -74,6 +74,14 @@ namespace BCCGULF.Plugins
 
                 tracingService.Trace("BookableResource: {0}, LeaveType: {1}", bookableResourceRef.Id, leaveTypeRef.Id);
 
+                // ── Step 3a: Copy approved Leave Start / End dates to the Bookable Resource ──
+                var resourceUpdate = new Entity(BookableResource.EntityName, bookableResourceRef.Id);
+                resourceUpdate[BookableResource.LeaveStartDate] = postImage.GetAttributeValue<DateTime?>(LeaveRequest.StartTime);
+                resourceUpdate[BookableResource.LeaveEndDate] = postImage.GetAttributeValue<DateTime?>(LeaveRequest.EndTime);
+                service.Update(resourceUpdate);
+                tracingService.Trace("Bookable Resource leave dates set. Start: {0}, End: {1}",
+                    resourceUpdate[BookableResource.LeaveStartDate], resourceUpdate[BookableResource.LeaveEndDate]);
+
                 // ── Step 4: Get LeaveDays (null → 0) ──
                 decimal leaveDays = postImage.Contains(LeaveRequest.LeaveDays) && postImage[LeaveRequest.LeaveDays] != null
                     ? postImage.GetAttributeValue<decimal>(LeaveRequest.LeaveDays)

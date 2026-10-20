@@ -15,6 +15,7 @@ namespace BCCGULF.Common
             EntityReference bookableResource,
             int month,
             int year,
+            decimal days,
             ITracingService tracingService)
         {
             if (service == null)
@@ -42,6 +43,7 @@ namespace BCCGULF.Common
             projectedLeaves[ProjectedLeaves.Month] = month;
             projectedLeaves[ProjectedLeaves.MonthOfYear] = new OptionSetValue(month);
             projectedLeaves[ProjectedLeaves.Year] = year;
+            projectedLeaves[ProjectedLeaves.Days] = days;
 
             try
             {
@@ -54,6 +56,55 @@ namespace BCCGULF.Common
                 tracingService.Trace("CreateProjectedLeavesRecord failed: {0}", ex.ToString());
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Monthly Annual Leave accrual for a Bookable Resource Type: Staff = 1.83 days, Worker = 2.5 days.
+        /// </summary>
+        public static decimal GetMonthlyAnnualLeaveDays(int resourceTypeValue)
+        {
+            return resourceTypeValue == (int)BookableResource.Type_OptionSet.Staff ? 1.83m : 2.5m;
+        }
+
+        /// <summary>
+        /// First projected month for a joining date.
+        /// Joined on or before the 15th: the joining month. Joined after the 15th: the following month.
+        /// </summary>
+        public static DateTime GetProjectionStartMonth(DateTime joiningDate)
+        {
+            var startMonth = new DateTime(joiningDate.Year, joiningDate.Month, 1);
+            return joiningDate.Day > 15 ? startMonth.AddMonths(1) : startMonth;
+        }
+
+        /// <summary>
+        /// Creates 12 monthly Projected Leaves records starting from startMonth.
+        /// Months before 2026 are skipped (bcc_year minimum). Returns the number of records created.
+        /// </summary>
+        public static int CreateProjectedLeaves(
+            IOrganizationService service,
+            EntityReference bookableResource,
+            DateTime startMonth,
+            decimal monthlyDays,
+            ITracingService tracingService)
+        {
+            int created = 0;
+
+            for (int i = 0; i < 12; i++)
+            {
+                var period = startMonth.AddMonths(i);
+                if (period.Year < 2026)
+                {
+                    tracingService.Trace("Skipping Projected Leaves for {0}: year is before 2026.", period.ToString("yyyy-MM"));
+                    continue;
+                }
+
+                CreateProjectedLeavesRecord(service, bookableResource, period.Month, period.Year, monthlyDays, tracingService);
+                created++;
+            }
+
+            tracingService.Trace("Projected Leaves created: {0} month(s) of {1} day(s) from {2}",
+                created, monthlyDays, startMonth.ToString("yyyy-MM"));
+            return created;
         }
 
         public static void UploadFile(
