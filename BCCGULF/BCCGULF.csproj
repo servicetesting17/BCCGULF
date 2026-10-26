@@ -148,6 +148,7 @@
     <Compile Include="Plugins\OnCreateLeaveProvision.cs" />
     <Compile Include="Plugins\OnCreateLeaveRequest.cs" />
     <Compile Include="Plugins\OnCreateUpdateRoster.cs" />
+    <Compile Include="Plugins\OnUpdateLeaveRequestAttendance.cs" />
     <Compile Include="Plugins\OnUpdateEvaluationItem.cs" />
     <Compile Include="Plugins\OnUpdateGratuityOpeningBalance.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -95,6 +95,7 @@ namespace BCCGULF.Plugins
                       <entity name='{0}'>
                         <attribute name='{1}' />
                         <attribute name='{2}' />
+                        <attribute name='{7}' />
                         <filter type='and'>
                           <condition attribute='statecode' operator='eq' value='0' />
                           <condition attribute='{3}' operator='eq' value='{5}' />
@@ -108,10 +109,20 @@ namespace BCCGULF.Plugins
                     LeaveBalance.BookableResource,  // {3} bcc_bookableresourceid
                     LeaveBalance.LeaveType,         // {4} bcc_leavetypeid
                     bookableResourceRef.Id,         // {5} bookable resource id
-                    leaveTypeRef.Id);               // {6} leave type id
+                    leaveTypeRef.Id,                // {6} leave type id
+                    LeaveBalance.TotalLeaves);      // {7} bcc_totalleaves
 
                 var leaveBalances = service.RetrieveMultiple(new FetchExpression(fetchXml));
                 tracingService.Trace("Leave Balance records found: {0}", leaveBalances.Entities.Count);
+
+                // ── Compensatory Leave: approval EARNS leave — credit Total Leaves instead of adding to Used Leaves ──
+                string leaveTypeName = Common.Common.GetLeaveTypeName(service, leaveTypeRef);
+                if (Common.Common.IsCompensatoryLeave(leaveTypeName))
+                {
+                    CreditCompensatoryLeave(service, leaveBalances, bookableResourceRef, leaveTypeRef, leaveTypeName, leaveDays, tracingService);
+                    tracingService.Trace("OnApproveLeaveRequest: Plugin execution completed successfully.");
+                    return;
+                }
 
                 if (leaveBalances.Entities.Count == 0)
                 {
@@ -149,6 +160,40 @@ namespace BCCGULF.Plugins
                 throw new InvalidPluginExecutionException(
                     "An error occurred in OnApproveLeaveRequest plugin: " + ex.Message, ex);
             }
+        }
+
+        /// <summary>
+        /// Adds the approved days to Total Leaves of the resource's Compensatory Leave balance.
+        /// Creates the balance record when the resource doesn't have one yet.
+        /// </summary>
+        private static void CreditCompensatoryLeave(IOrganizationService service, EntityCollection leaveBalances,
+            EntityReference bookableResourceRef, EntityReference leaveTypeRef, string leaveTypeName,
+            decimal leaveDays, ITracingService tracingService)
+        {
+            if (leaveBalances.Entities.Count == 0)
+            {
+                var newBalance = new Entity(LeaveBalance.EntityName);
+                newBalance[LeaveBalance.PrimaryName] = string.IsNullOrEmpty(leaveTypeName) ? "Compensatory Leave" : leaveTypeName;
+                newBalance[LeaveBalance.BookableResource] = new EntityReference(BookableResource.EntityName, bookableResourceRef.Id);
+                newBalance[LeaveBalance.LeaveType] = new EntityReference(LeaveType.EntityName, leaveTypeRef.Id);
+                newBalance[LeaveBalance.TotalLeaves] = leaveDays;
+                newBalance[LeaveBalance.UsedLeaves] = 0m;
+                service.Create(newBalance);
+
+                tracingService.Trace("Compensatory Leave balance created with Total Leaves: {0}", leaveDays);
+                return;
+            }
+
+            var leaveBalance = leaveBalances.Entities[0];
+            decimal existingTotalLeaves = leaveBalance.GetAttributeValue<decimal?>(LeaveBalance.TotalLeaves) ?? 0m;
+            decimal newTotalLeaves = existingTotalLeaves + leaveDays;
+
+            var updateEntity = new Entity(LeaveBalance.EntityName, leaveBalance.Id);
+            updateEntity[LeaveBalance.TotalLeaves] = newTotalLeaves;
+            service.Update(updateEntity);
+
+            tracingService.Trace("Compensatory Leave credited. Existing Total Leaves: {0}, Approved Days: {1}, New Total Leaves: {2}",
+                existingTotalLeaves, leaveDays, newTotalLeaves);
         }
     }
 }

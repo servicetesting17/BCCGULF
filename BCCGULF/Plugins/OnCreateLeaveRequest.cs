@@ -55,6 +55,15 @@ namespace BCCGULF.Plugins
 
                 tracingService.Trace("LeaveDays requested: {0}", leaveDays);
 
+                // ── Step 2b: Compensatory Leave — Number of Days = count of selected attendance records ──
+                if (Common.Common.IsCompensatoryLeave(Common.Common.GetLeaveTypeName(service, leaveTypeRef)))
+                {
+                    leaveDays = Common.Common.CountAttendanceRecords(target.GetAttributeValue<string>(LeaveRequest.Attendance));
+                    target[LeaveRequest.LeaveDays] = leaveDays;
+                    tracingService.Trace("Compensatory Leave: LeaveDays set from attendance count: {0}", leaveDays);
+                    return;
+                }
+
                 // ── Step 2a: Within 180 days of joining only Unpaid Leave / Unpaid Sick Leave / Emergency Leave are allowed ──
                 ValidateProbationLeaveType(service, target, bookableResourceRef, leaveTypeRef, tracingService);
 
@@ -322,12 +331,7 @@ namespace BCCGULF.Plugins
             if (daysSinceJoining >= ProbationDays)
                 return;
 
-            string leaveTypeName = leaveTypeRef.Name;
-            if (string.IsNullOrEmpty(leaveTypeName))
-            {
-                var leaveTypeEntity = service.Retrieve(LeaveType.EntityName, leaveTypeRef.Id, new ColumnSet(LeaveType.PrimaryName));
-                leaveTypeName = leaveTypeEntity.GetAttributeValue<string>(LeaveType.PrimaryName) ?? string.Empty;
-            }
+            string leaveTypeName = Common.Common.GetLeaveTypeName(service, leaveTypeRef);
 
             foreach (string allowed in ProbationAllowedLeaveTypes)
             {
@@ -358,12 +362,7 @@ namespace BCCGULF.Plugins
         private static decimal GetProjectedAnnualLeaveBalance(IOrganizationService service, EntityReference bookableResourceRef,
             EntityReference leaveTypeRef, DateTime leaveEndTime, ITracingService tracingService)
         {
-            string leaveTypeName = leaveTypeRef.Name;
-            if (string.IsNullOrEmpty(leaveTypeName))
-            {
-                var leaveTypeEntity = service.Retrieve(LeaveType.EntityName, leaveTypeRef.Id, new ColumnSet(LeaveType.PrimaryName));
-                leaveTypeName = leaveTypeEntity.GetAttributeValue<string>(LeaveType.PrimaryName) ?? string.Empty;
-            }
+            string leaveTypeName = Common.Common.GetLeaveTypeName(service, leaveTypeRef);
 
             if (leaveTypeName.IndexOf("Annual Leave", StringComparison.OrdinalIgnoreCase) < 0)
                 return 0m;

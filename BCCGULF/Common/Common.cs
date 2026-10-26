@@ -2,7 +2,10 @@
 using Microsoft.Xrm.Sdk;
 using BCCGULF.Constants;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
 using System.Text;
 
 
@@ -107,6 +110,53 @@ namespace BCCGULF.Common
             return created;
         }
 
+        /// <summary>
+        /// Leave type name from the lookup, retrieving the Leave Type record when the name isn't populated.
+        /// </summary>
+        public static string GetLeaveTypeName(IOrganizationService service, EntityReference leaveTypeRef)
+        {
+            if (leaveTypeRef == null)
+                return string.Empty;
+
+            if (!string.IsNullOrEmpty(leaveTypeRef.Name))
+                return leaveTypeRef.Name;
+
+            var leaveType = service.Retrieve(LeaveType.EntityName, leaveTypeRef.Id, new Microsoft.Xrm.Sdk.Query.ColumnSet(LeaveType.PrimaryName));
+            return leaveType.GetAttributeValue<string>(LeaveType.PrimaryName) ?? string.Empty;
+        }
+
+        public static bool IsCompensatoryLeave(string leaveTypeName)
+        {
+            return !string.IsNullOrEmpty(leaveTypeName)
+                && leaveTypeName.IndexOf("Compensatory Leave", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// Counts the attendance records in a Leave Request's bcc_attendance JSON, e.g.
+        /// [{"id":"...","name":"...","etn":"new_biometric"}, ...]. Duplicate ids are counted once.
+        /// Returns 0 for empty or null JSON.
+        /// </summary>
+        public static int CountAttendanceRecords(string attendanceJson)
+        {
+            if (string.IsNullOrWhiteSpace(attendanceJson))
+                return 0;
+
+            AttendanceReference[] records;
+            using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(attendanceJson)))
+            {
+                records = (AttendanceReference[])new DataContractJsonSerializer(typeof(AttendanceReference[])).ReadObject(stream);
+            }
+
+            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var record in records ?? new AttendanceReference[0])
+            {
+                if (record != null && !string.IsNullOrWhiteSpace(record.Id))
+                    ids.Add(record.Id.Trim('{', '}', ' '));
+            }
+
+            return ids.Count;
+        }
+
         public static void UploadFile(
     IOrganizationService service,
     string entityName,
@@ -172,5 +222,14 @@ namespace BCCGULF.Common
         [DataMember] public string Base64Content { get; set; }
         [DataMember] public string FileName { get; set; }
         [DataMember] public string FileType { get; set; }
+    }
+
+    /// <summary>One entry of the Leave Request bcc_attendance JSON.</summary>
+    [DataContract]
+    public class AttendanceReference
+    {
+        [DataMember(Name = "id")] public string Id { get; set; }
+        [DataMember(Name = "name")] public string Name { get; set; }
+        [DataMember(Name = "etn")] public string EntityName { get; set; }
     }
 }

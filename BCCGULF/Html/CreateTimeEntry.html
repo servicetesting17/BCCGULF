@@ -168,6 +168,28 @@
             text-align: right;
             margin-top: 18px;
         }
+
+        /* ── Overtime locked: selected date attendance missing In/Out ── */
+        .ot-lock-info {
+            display: none;
+            background-color: #fff4ce;
+            border: 1px solid #f2c94c;
+            border-left: 4px solid #d29200;
+            border-radius: 4px;
+            color: #4d3b00;
+            font-size: 12px;
+            padding: 8px 10px;
+            margin-bottom: 12px;
+        }
+        .ot-lock-info.active { display: block; }
+        .ot-lock-info ul {
+            margin: 4px 0 0 0;
+            padding-left: 18px;
+        }
+        .ot-locked label::after {
+            content: " \1F512";
+            font-size: 11px;
+        }
     </style>
 
 <script>
@@ -390,6 +412,7 @@ function isSystemAdministrator() {
 -------------------------------------------------------- */
 async function onDateChange() {
     const dateInput = document.getElementById("date");
+    setOvertimeLock(null);
     if (!dateInput.value) return;
 
     const selectedDate = new Date(dateInput.value);
@@ -504,7 +527,109 @@ async function onDateChange() {
         }
     }
 
+    await applyAttendanceOvertimeLock(selectedDate, dateInput.value);
+
     calculateTotal();
+}
+
+/* --------------------------------------------------------
+   OVERTIME LOCK — selected date attendance missing In / Out time
+-------------------------------------------------------- */
+const OVERTIME_FIELD_IDS = ["overtime1", "overtime2", "overtime3"];
+
+// Set to true to lock overtime when the selected date's attendance is missing In / Out time
+const ENABLE_ATTENDANCE_OVERTIME_LOCK = false;
+
+/**
+ * If any selected resource has an attendance record for the selected date with
+ * In Time or Out Time missing, lock all overtime fields (value 0) and show why.
+ * Otherwise only clears the lock message; the existing overtime rules stay as they are.
+ */
+async function applyAttendanceOvertimeLock(attendanceDate, selectedDateValue) {
+    setOvertimeLock(null);
+
+    if (!ENABLE_ATTENDANCE_OVERTIME_LOCK) return;
+    if (document.getElementById("entryType").value !== "100000000") return;
+
+    const guids = selectedGuids
+        ? selectedGuids.split(",").map(g => g.replace(/[{}]/g, "").trim()).filter(Boolean)
+        : [];
+    if (guids.length === 0) return;
+
+    const attendanceDateStr = [
+        attendanceDate.getFullYear(),
+        String(attendanceDate.getMonth() + 1).padStart(2, "0"),
+        String(attendanceDate.getDate()).padStart(2, "0")
+    ].join("-");
+
+    try {
+        const resourceFilter = guids.map(g => "_new_employee_id_value eq " + g).join(" or ");
+        const result = await parent.Xrm.WebApi.retrieveMultipleRecords(
+            "new_biometric",
+            "?$select=bcc_intime,bcc_outtime,_new_employee_id_value" +
+            "&$filter=statecode eq 0 and new_date eq " + attendanceDateStr + " and (" + resourceFilter + ")"
+        );
+
+        // Date changed while the request was running — a newer call will apply its own result
+        if (document.getElementById("date").value !== selectedDateValue) return;
+
+        const missing = [];
+        result.entities.forEach(record => {
+            const missingIn = !record.bcc_intime;
+            const missingOut = !record.bcc_outtime;
+            if (!missingIn && !missingOut) return;
+
+            missing.push({
+                name: record["_new_employee_id_value@OData.Community.Display.V1.FormattedValue"] || "Employee",
+                what: missingIn && missingOut ? "In & Out Time" : missingIn ? "In Time" : "Out Time"
+            });
+        });
+
+        if (missing.length > 0) {
+            setOvertimeLock({ attendanceDateStr: attendanceDateStr, missing: missing });
+        }
+    } catch (err) {
+        console.error("Error checking attendance for selected date:", err.message);
+    }
+}
+
+function setOvertimeLock(lock) {
+    const info = document.getElementById("otLockInfo");
+
+    if (!lock) {
+        info.classList.remove("active");
+        info.innerHTML = "";
+        OVERTIME_FIELD_IDS.forEach(id => {
+            document.getElementById(id).removeAttribute("title");
+            document.getElementById(id + "Row").classList.remove("ot-locked");
+            document.getElementById(id + "Row").removeAttribute("title");
+        });
+        return;
+    }
+
+    const dateText = new Date(lock.attendanceDateStr + "T00:00:00").toLocaleDateString("en-GB");
+    const tooltip = "Overtime is locked: attendance for " + dateText + " is missing In / Out time - " +
+        lock.missing.map(m => m.name + " - " + m.what).join(", ");
+
+    OVERTIME_FIELD_IDS.forEach(id => {
+        const field = document.getElementById(id);
+        field.value = 0;
+        field.disabled = true;
+        field.title = tooltip;
+        // Disabled inputs don't show tooltips in every browser, so put it on the row too
+        document.getElementById(id + "Row").classList.add("ot-locked");
+        document.getElementById(id + "Row").title = tooltip;
+    });
+
+    const items = lock.missing.map(m => {
+        const li = document.createElement("li");
+        li.textContent = m.name + " — missing " + m.what;
+        return li.outerHTML;
+    }).join("");
+
+    info.innerHTML = "<strong>&#9888; Overtime locked.</strong> Attendance for " +
+        dateText + " is missing In / Out time:<ul>" + items + "</ul>";
+    info.classList.add("active");
 }
 
 function setDayNameFromDate() {
@@ -577,6 +702,7 @@ function onEntryTypeChange() {
     document.getElementById("dateLabel").textContent = isAbsent ? "From Date:" : "Date:";
 
     if (isAbsent) {
+        setOvertimeLock(null);
         durationField.value   = "";
         overtime1Field.value  = "";
         overtime2Field.value  = "";
@@ -1260,6 +1386,8 @@ function closePopup() {
             <label>Duration:</label>
             <input type="number" id="Duration" readonly />
         </div>
+
+        <div class="ot-lock-info" id="otLockInfo"></div>
 
         <div class="form-row" id="overtime1Row">
             <label>Overtime 1 (hrs):</label>

@@ -20,6 +20,8 @@ namespace BCCGULF.Constants
         public const string PrimaryKey = "bcc_leaverequestid";
         /// <summary>Type: String, RequiredLevel: ApplicationRequired, MaxLength: 850, Format: Text</summary>
         public const string PrimaryName = "bcc_name";
+        /// <summary>Type: String (JSON array of new_biometric references), RequiredLevel: None</summary>
+        public const string Attendance = "bcc_attendance";
         /// <summary>Type: Lookup, RequiredLevel: None, Targets: bookableresource</summary>
         public const string BookableResource = "bcc_bookableresourceid";
         /// <summary>Type: DateTime, RequiredLevel: None, Format: DateAndTime, DateTimeBehavior: TimeZoneIndependent</summary>

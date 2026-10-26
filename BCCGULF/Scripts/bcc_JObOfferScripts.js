@@ -6,9 +6,8 @@ BCCJobOffer.Form = {
         airTicketAttachmentField: "bcc_attatchairticket",
         subStageStatusField: "bcc_substagestatus",
         biometricStages: ["Biometric Appointment", "Biometric Done"],
-        biometricDoneStage: "Biometric Done",
         biometricSubStageStatusValue: 755700000,
-        biometricDoneStatusValue: 755700019
+        biometricStatusValue: 755700019
     },
 
     onLoad: function (executionContext) {
@@ -19,7 +18,8 @@ BCCJobOffer.Form = {
             formContext.data.process.addOnStageChange(BCCJobOffer.Form.onStageChange);
             BCCJobOffer.Form.__stageChangeHandlerAdded = true;
         }
-
+       
+        BCCJobOffer.Form.onStageChange(executionContext);
         var airTicketAttr = formContext.getAttribute(BCCJobOffer.Form.config.airTicketField);
 
         if (!airTicketAttr) {
@@ -32,8 +32,8 @@ BCCJobOffer.Form = {
             airTicketAttr.addOnChange(BCCJobOffer.Form.onAirTicketChange);
             airTicketAttr.__bccJobOfferAirTicketHandlerAdded = true;
         }
-
-        BCCJobOffer.Form.onAirTicketChange(executionContext);
+          BCCJobOffer.Form.onAirTicketChange(executionContext);
+       
     },
 
     setBpfForStatus: function (formContext) {
@@ -80,13 +80,18 @@ BCCJobOffer.Form = {
     },
 
     /**
-     * BPF stage change: on Biometric Appointment / Biometric Done set the sub stage status,
-     * and on Biometric Done also set the status reason, then save.
+     * BPF stage change: on Biometric Appointment / Biometric Done set the sub stage status
+     * and the status reason, then save.
      */
     onStageChange: function (executionContext) {
         var formContext = executionContext.getFormContext();
         var config = BCCJobOffer.Form.config;
-        var stage = executionContext.getEventArgs().getStage() || formContext.data.process.getActiveStage();
+        // Stage change passes the new stage in event args; on form load fall back to the active stage
+        var eventArgs = executionContext.getEventArgs ? executionContext.getEventArgs() : null;
+        var stage = eventArgs && typeof eventArgs.getStage === "function" ? eventArgs.getStage() : null;
+        if (!stage && formContext.data && formContext.data.process) {
+            stage = formContext.data.process.getActiveStage();
+        }
         var stageName = stage ? stage.getName() : null;
 
         if (config.biometricStages.indexOf(stageName) === -1) {
@@ -98,15 +103,26 @@ BCCJobOffer.Form = {
             console.error("BCCJobOffer.Form.onStageChange - field not found: " + config.subStageStatusField);
             return;
         }
-        subStageStatusAttr.setValue(config.biometricSubStageStatusValue);
+        var changed = false;
 
-        if (stageName === config.biometricDoneStage) {
-            var statusAttr = formContext.getAttribute("statuscode");
-            if (!statusAttr) {
-                console.error("BCCJobOffer.Form.onStageChange - field not found: statuscode");
-                return;
-            }
-            statusAttr.setValue(config.biometricDoneStatusValue);
+        if (subStageStatusAttr.getValue() !== config.biometricSubStageStatusValue) {
+            subStageStatusAttr.setValue(config.biometricSubStageStatusValue);
+            changed = true;
+        }
+
+        var statusAttr = formContext.getAttribute("statuscode");
+        if (!statusAttr) {
+            console.error("BCCJobOffer.Form.onStageChange - field not found: statuscode");
+            return;
+        }
+        if (statusAttr.getValue() !== config.biometricStatusValue) {
+            statusAttr.setValue(config.biometricStatusValue);
+            changed = true;
+        }
+
+        // Only save when a value actually changed, so form load doesn't save every time
+        if (!changed) {
+            return;
         }
 
         formContext.data.save().then(null, function (error) {
