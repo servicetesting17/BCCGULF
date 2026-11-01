@@ -1,6 +1,13 @@
 var CancelOnDeactivate = {
 
-    onCancelButtonClick: function (primaryControl) {
+    /**
+     * Ribbon command. Parameters: PrimaryControl, then a String parameter:
+     *   "CancelJobOffer"    → cancellation popup without Cancellation Type; on submit the record is set to
+     *                         Inactive / Cancelled (755700012) and the form is refreshed
+     *   "CancelJobContract" → existing cancellation popup (Cancellation Type, documents + Cancellation BPF)
+     * Buttons that don't pass the second parameter keep the existing (CancelJobContract) behaviour.
+     */
+    onCancelButtonClick: function (primaryControl, cancelType) {
 
         var formContext = null;
         var recordId = null;
@@ -39,7 +46,7 @@ var CancelOnDeactivate = {
             text: "Are you sure you want to cancel this Job Offer?"
         }).then(function (result) {
             if (!result.confirmed) return;
-            CancelOnDeactivate.showCancelPopup(formContext, entityName, recordId);
+            CancelOnDeactivate.showCancelPopup(formContext, entityName, recordId, cancelType);
         });
     },
 
@@ -216,9 +223,12 @@ var CancelOnDeactivate = {
     // ===============================
     // CANCEL POPUP (inline modal)
     // ===============================
-    showCancelPopup: function (formContext, entityName, recordId) {
+    showCancelPopup: function (formContext, entityName, recordId, cancelType) {
 
         recordId = recordId.replace(/[{}]/g, "");
+
+        // Cancel Job Offer: no Cancellation Type, record is set to Inactive / Cancelled instead of the BPF flow
+        var isCancelJobOffer = cancelType === "CancelJobOffer";
 
         CancelOnDeactivate.removeModal();
 
@@ -492,7 +502,7 @@ var CancelOnDeactivate = {
             var file = fileInput.files[0]; // optional
             var cancellationFormFile = cancellationFormInput.files[0]; // optional
 
-            if (!cancellationType) {
+            if (!isCancelJobOffer && !cancellationType) {
                 cancellationTypeInput.style.border = "1px solid #d13438";
                 cancellationTypeError.style.display = "block";
                 cancellationTypeInput.focus();
@@ -521,10 +531,12 @@ var CancelOnDeactivate = {
             // ===============================
             // STEP 1: Save Cancel Reason
             // ===============================
-            Xrm.WebApi.updateRecord(entityName, recordId, {
-                bcc_cancelreason: reason,
-                bcc_cancellationtype: parseInt(cancellationType, 10)
-            }).then(function () {
+            var cancelDetails = { bcc_cancelreason: reason };
+            if (!isCancelJobOffer) {
+                cancelDetails.bcc_cancellationtype = parseInt(cancellationType, 10);
+            }
+
+            Xrm.WebApi.updateRecord(entityName, recordId, cancelDetails).then(function () {
 
                 // ===============================
                 // STEP 2: Upload cancel document only if selected
@@ -584,14 +596,25 @@ var CancelOnDeactivate = {
 
                 // ===============================
                 // STEP 4: Deactivate the record
+                // Cancel Job Offer → Inactive / Cancelled (755700012)
                 // ===============================
+                if (isCancelJobOffer) {
+                    return Xrm.WebApi.updateRecord(entityName, recordId, {
+                        statecode: 1,
+                        statuscode: 755700012
+                    });
+                }
                 return CancelOnDeactivate.deactivateRecord(entityName, recordId);
 
             }).then(function () {
 
                 // ===============================
                 // STEP 5: Switch the form directly to the Cancellation BPF.
+                // Not used for Cancel Job Offer.
                 // ===============================
+                if (isCancelJobOffer) {
+                    return Promise.resolve();
+                }
                 return CancelOnDeactivate.activateCancellationBpf(entityName, formContext)
                     .catch(function (err) {
                         throw new Error(
@@ -609,7 +632,9 @@ var CancelOnDeactivate = {
                 // ===============================
                 Xrm.Navigation.openAlertDialog({
                     title: "Success",
-                    text: "Record has been cancelled, deactivated, and moved to the Cancellation BPF."
+                    text: isCancelJobOffer
+                        ? "Job Offer has been cancelled."
+                        : "Record has been cancelled, deactivated, and moved to the Cancellation BPF."
                 }).then(function () {
 
                     if (formContext) {
@@ -644,9 +669,11 @@ var CancelOnDeactivate = {
         // ===============================
         // ASSEMBLE MODAL
         // ===============================
-        body.appendChild(cancellationTypeLabel);
-        body.appendChild(cancellationTypeInput);
-        body.appendChild(cancellationTypeError);
+        if (!isCancelJobOffer) {
+            body.appendChild(cancellationTypeLabel);
+            body.appendChild(cancellationTypeInput);
+            body.appendChild(cancellationTypeError);
+        }
         body.appendChild(reasonLabel);
         body.appendChild(reasonInput);
         body.appendChild(reasonError);

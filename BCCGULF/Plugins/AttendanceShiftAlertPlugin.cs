@@ -162,6 +162,7 @@ namespace BCCGULF.Plugins
                                 actualTime:          actualCheckIn,
                                 shiftTime:           shiftStart,
                                 bookableResourceRef: employeeRef,
+                                attendanceRef:       new EntityReference(Attendence.EntityName, target.Id),
                                 managerRef:          managerRef,
                                 employeeId:          employeeId,
                                 designationName:     designationName
@@ -195,6 +196,7 @@ namespace BCCGULF.Plugins
                                 actualTime:          actualCheckOut,
                                 shiftTime:           shiftEnd,
                                 bookableResourceRef: employeeRef,
+                                attendanceRef:       new EntityReference(Attendence.EntityName, target.Id),
                                 managerRef:          managerRef,
                                 employeeId:          employeeId,
                                 designationName:     designationName
@@ -275,7 +277,7 @@ namespace BCCGULF.Plugins
             Guid senderId, EntityReference contactRef, string contactEmail,
             string employeeName, string attendanceDate,
             bool isLateCheckIn, TimeSpan actualTime, TimeSpan shiftTime,
-            EntityReference bookableResourceRef, EntityReference managerRef,
+            EntityReference bookableResourceRef, EntityReference attendanceRef, EntityReference managerRef,
             string employeeId, string designationName)
         {
             string subject = isLateCheckIn
@@ -285,7 +287,7 @@ namespace BCCGULF.Plugins
             var email = new Entity("email");
             email["subject"]           = subject;
             email["description"]       = BuildEmailBody(employeeName, attendanceDate, isLateCheckIn, actualTime, shiftTime, employeeId, designationName);
-            email["regardingobjectid"] = contactRef;
+            email["regardingobjectid"] = attendanceRef;
 
             var fromParty = new Entity("activityparty");
             fromParty["partyid"] = new EntityReference("systemuser", senderId);

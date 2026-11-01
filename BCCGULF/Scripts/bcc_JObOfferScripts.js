@@ -7,10 +7,135 @@ BCCJobOffer.Form = {
         subStageStatusField: "bcc_substagestatus",
         biometricStages: ["Biometric Appointment", "Biometric Done"],
         biometricSubStageStatusValue: 755700000,
-        biometricStatusValue: 755700019
+        biometricStatusValue: 755700019,
+        renewalStatusField: "bcc_renewalstatus",
+        designationField: "bcc_designation",
+        noAccessNotificationId: "bccJobOfferNoAccess",
+        noAccessMessage: "You do not have access to this record."
     },
 
     onLoad: function (executionContext) {
+        var formContext = executionContext.getFormContext();
+
+        // Renewal Job Offers: only users configured for the designation (or admins) may see the record.
+        // Skipped on Create (form type 1) — only existing records are checked.
+        var isCreateForm = formContext.ui.getFormType() === 1;
+        if (!isCreateForm && BCCJobOffer.Form.hasRenewalStatus(formContext)) {
+            BCCJobOffer.Form.checkRenewalAccess(formContext).then(function (hasAccess) {
+                if (hasAccess) {
+                    BCCJobOffer.Form.initForm(executionContext);
+                } else {
+                    BCCJobOffer.Form.hideFormForNoAccess(formContext);
+                }
+            });
+            return;
+        }
+
+        BCCJobOffer.Form.initForm(executionContext);
+    },
+
+    hasRenewalStatus: function (formContext) {
+        var renewalStatusAttr = formContext.getAttribute(BCCJobOffer.Form.config.renewalStatusField);
+        if (!renewalStatusAttr) {
+            return false;
+        }
+        var value = renewalStatusAttr.getValue();
+        return value !== null && value !== undefined && value !== "";
+    },
+
+    /**
+     * Resolves true when the current user has an active BCC Configuration record that is either
+     * linked to the Job Offer's designation, or has the Admin flag set.
+     */
+    checkRenewalAccess: function (formContext) {
+        var config = BCCJobOffer.Form.config;
+        var userId = Xrm.Utility.getGlobalContext().userSettings.userId.replace(/[{}]/g, "");
+
+        var designationAttr = formContext.getAttribute(config.designationField);
+        var designationValue = designationAttr ? designationAttr.getValue() : null;
+        var designationId = designationValue && designationValue.length > 0
+            ? designationValue[0].id.replace(/[{}]/g, "")
+            : null;
+
+        // User's configuration records linked to the Job Offer designation
+        var designationCheck = Promise.resolve(0);
+        if (designationId) {
+            var fetchXml = [
+                "<fetch version='1.0' distinct='true'>",
+                "  <entity name='bcc_bccconfiguration'>",
+                "    <attribute name='bcc_bccconfigurationid' />",
+                "    <attribute name='bcc_admin' />",
+                "    <order attribute='bcc_name' descending='false' />",
+                "    <filter type='and'>",
+                "      <condition attribute='statecode' operator='eq' value='0' />",
+                "      <condition attribute='bcc_userid' operator='eq' value='" + userId + "' />",
+                "    </filter>",
+                "    <link-entity name='bcc_bccconfiguration_bcc_designation' intersect='true' visible='false'",
+                "        from='bcc_bccconfigurationid' to='bcc_bccconfigurationid'>",
+                "      <link-entity name='bcc_designation' alias='aa' from='bcc_designationid' to='bcc_designationid'>",
+                "        <filter type='and'>",
+                "          <condition attribute='bcc_designationid' operator='eq' value='" + designationId + "' />",
+                "        </filter>",
+                "      </link-entity>",
+                "    </link-entity>",
+                "  </entity>",
+                "</fetch>"
+            ].join("");
+
+            designationCheck = Xrm.WebApi.retrieveMultipleRecords("bcc_bccconfiguration", "?fetchXml=" + encodeURIComponent(fetchXml))
+                .then(function (result) { return result.entities.length; });
+        }
+
+        // User's configuration records with the Admin flag (any designation)
+        var adminCheck = Xrm.WebApi.retrieveMultipleRecords("bcc_bccconfiguration",
+            "?$select=bcc_admin&$filter=statecode eq 0 and _bcc_userid_value eq " + userId)
+            .then(function (result) {
+                return result.entities.some(function (record) {
+                    return BCCJobOffer.Form.isYes(record, "bcc_admin");
+                });
+            });
+
+        return Promise.all([designationCheck, adminCheck]).then(function (results) {
+            var designationCount = results[0];
+            var isAdmin = results[1];
+            console.log("BCCJobOffer.Form.checkRenewalAccess - designation matches: " + designationCount + ", admin: " + isAdmin);
+            return designationCount > 0 || isAdmin;
+        }).catch(function (error) {
+            // Fail closed: if access can't be verified, don't show the record
+            console.error("BCCJobOffer.Form.checkRenewalAccess - " + error.message);
+            return false;
+        });
+    },
+
+    // Admin flag may be a Yes/No column (true) or a choice whose label is "Yes"
+    isYes: function (record, fieldName) {
+        var value = record[fieldName];
+        var label = record[fieldName + "@OData.Community.Display.V1.FormattedValue"];
+        return value === true || value === 1 || (typeof label === "string" && label.toLowerCase() === "yes");
+    },
+
+    hideFormForNoAccess: function (formContext) {
+        var ui = formContext.ui;
+
+        ui.tabs.forEach(function (tab) {
+            tab.setVisible(false);
+        });
+
+        if (ui.process && typeof ui.process.setVisible === "function") {
+            ui.process.setVisible(false);
+        }
+
+        if (ui.headerSection) {
+            if (typeof ui.headerSection.setBodyVisible === "function") ui.headerSection.setBodyVisible(false);
+            if (typeof ui.headerSection.setTabNavigatorVisible === "function") ui.headerSection.setTabNavigatorVisible(false);
+            if (typeof ui.headerSection.setCommandBarVisible === "function") ui.headerSection.setCommandBarVisible(false);
+        }
+
+        ui.setFormNotification(BCCJobOffer.Form.config.noAccessMessage, "ERROR", BCCJobOffer.Form.config.noAccessNotificationId);
+    },
+
+    // Existing form load logic — runs only when the user may see the record
+    initForm: function (executionContext) {
         var formContext = executionContext.getFormContext();
         BCCJobOffer.Form.setBpfForStatus(formContext);
 
