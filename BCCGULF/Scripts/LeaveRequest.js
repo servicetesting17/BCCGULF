@@ -36,6 +36,7 @@ LeaveRequest.Form = {
         projectedLeavesMonthField: "bcc_month",
         projectedLeavesYearField: "bcc_year",
         projectedLeavesDaysField: "bcc_days",
+        leaveRestrictionDaysField: "bcc_leaverestrictiondays", // Leave Type: days between today and Start Date must be greater than this
         staffResourceTypeValue: 100000001  // option-set value of "Staff" in the new_type field — update if different
     },
 
@@ -76,6 +77,14 @@ LeaveRequest.Form = {
                 leaveTypeField.addOnChange(LeaveRequest.Form.onLeaveTypeFieldChange);
             }
 
+            if (!LeaveRequest.Form.__onSaveHandlerAdded) {
+                formContext.data.entity.addOnSave(LeaveRequest.Form.onSave);
+                LeaveRequest.Form.__onSaveHandlerAdded = true;
+            }
+            LeaveRequest.Form.loadLeaveRestrictionDays(formContext).catch(function (error) {
+                console.error("Error loading leave restriction days: " + error.message);
+            });
+
             LeaveRequest.Form.loadLeaveBalance(formContext);
 
             // Check if leave type has attachment required on form load
@@ -106,6 +115,142 @@ LeaveRequest.Form = {
             console.log("LeaveRequest Form loaded successfully");
         } catch (error) {
             console.error("Error on Form Load: " + error.message);
+        }
+    },
+
+    /**
+     * Load and cache the selected Leave Type's bcc_leaverestrictiondays, so onSave can validate synchronously.
+     */
+    loadLeaveRestrictionDays: function (formContext) {
+        var config = LeaveRequest.Form.config;
+        var leaveTypeAttr = formContext.getAttribute(config.leaveTypeField);
+        var leaveTypeLookup = leaveTypeAttr ? leaveTypeAttr.getValue() : null;
+
+        LeaveRequest.Form.leaveRestriction = null;
+        if (!leaveTypeLookup || leaveTypeLookup.length === 0) {
+            return Promise.resolve(null);
+        }
+
+        var leaveTypeId = LeaveRequest.Form.normalizeGuid(leaveTypeLookup[0].id);
+
+        return Xrm.WebApi.retrieveRecord(config.leaveTypeLogicalName, leaveTypeId, "?$select=" + config.leaveRestrictionDaysField)
+            .then(function (leaveType) {
+                var restrictionDays = leaveType[config.leaveRestrictionDaysField];
+                LeaveRequest.Form.leaveRestriction = {
+                    leaveTypeId: leaveTypeId.toLowerCase(),
+                    days: restrictionDays === undefined ? null : restrictionDays
+                };
+                return LeaveRequest.Form.leaveRestriction;
+            });
+    },
+
+    /**
+     * Leave Restriction Days is a notice period: the gap in calendar days between today and the
+     * leave Start Date must be greater than it. Returns the error message when it isn't, else null.
+     */
+    getLeaveRestrictionError: function (formContext, restrictionDays) {
+        if (restrictionDays === null || restrictionDays === undefined) {
+            return null;
+        }
+
+        var config = LeaveRequest.Form.config;
+        var startAttr = formContext.getAttribute(config.startTimeField);
+        var startValue = startAttr ? startAttr.getValue() : null;
+        if (!startValue) {
+            return null; // nothing to compare yet
+        }
+
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var startDate = new Date(startValue);
+        startDate.setHours(0, 0, 0, 0);
+
+        // Whole calendar days between today and the start date (Math.round absorbs DST hour shifts)
+        var gapDays = Math.round((startDate - today) / (24 * 60 * 60 * 1000));
+
+        if (gapDays > restrictionDays) {
+            return null;
+        }
+
+        var leaveTypeLookup = formContext.getAttribute(config.leaveTypeField).getValue();
+        var leaveTypeName = leaveTypeLookup && leaveTypeLookup[0].name ? leaveTypeLookup[0].name : "this leave type";
+        return leaveTypeName + " must be applied more than " + restrictionDays +
+            " day(s) in advance. The selected start date is " + gapDays + " day(s) from today.";
+    },
+
+    /**
+     * Form Save Handler — Leave Restriction Days.
+     * If the Leave Type has bcc_leaverestrictiondays, the gap between today and the Start Date must be greater than it,
+     * otherwise an error dialog is shown and the save is cancelled.
+     * Uses the value cached on load / leave type change; if it isn't loaded yet, the save is
+     * held, the Leave Type is read, then the save is re-issued.
+     */
+    onSave: function (executionContext) {
+        try {
+            var formContext = executionContext.getFormContext();
+            var config = LeaveRequest.Form.config;
+
+            // Re-issued save after a passed validation
+            if (LeaveRequest.Form.__leaveRestrictionValidated) {
+                LeaveRequest.Form.__leaveRestrictionValidated = false;
+                return;
+            }
+
+            var eventArgs = executionContext.getEventArgs();
+            var saveMode = eventArgs.getSaveMode();
+
+            // Only regular saves: Save (1), Save & Close (2), Save & New (59), Auto Save (70)
+            if ([1, 2, 59, 70].indexOf(saveMode) === -1) {
+                return;
+            }
+
+            var leaveTypeAttr = formContext.getAttribute(config.leaveTypeField);
+            var leaveTypeLookup = leaveTypeAttr ? leaveTypeAttr.getValue() : null;
+            if (!leaveTypeLookup || leaveTypeLookup.length === 0) {
+                return;
+            }
+
+            var leaveTypeId = LeaveRequest.Form.normalizeGuid(leaveTypeLookup[0].id).toLowerCase();
+            var cached = LeaveRequest.Form.leaveRestriction;
+
+            // Cached value for the current Leave Type — validate synchronously
+            if (cached && cached.leaveTypeId === leaveTypeId) {
+                var error = LeaveRequest.Form.getLeaveRestrictionError(formContext, cached.days);
+                if (error) {
+                    eventArgs.preventDefault();
+                    Xrm.Navigation.openErrorDialog({ message: error });
+                }
+                return;
+            }
+
+            // Not loaded yet — hold the save, load, validate, then re-issue
+            eventArgs.preventDefault();
+
+            LeaveRequest.Form.loadLeaveRestrictionDays(formContext)
+                .then(function (restriction) {
+                    var error = LeaveRequest.Form.getLeaveRestrictionError(formContext, restriction ? restriction.days : null);
+                    if (error) {
+                        Xrm.Navigation.openErrorDialog({ message: error });
+                        return;
+                    }
+
+                    LeaveRequest.Form.__leaveRestrictionValidated = true;
+                    if (saveMode === 2) {
+                        formContext.data.entity.save("saveandclose");
+                    } else if (saveMode === 59) {
+                        formContext.data.entity.save("saveandnew");
+                    } else {
+                        formContext.data.entity.save();
+                    }
+                })
+                .catch(function (error) {
+                    LeaveRequest.Form.__leaveRestrictionValidated = false;
+                    Xrm.Navigation.openErrorDialog({
+                        message: "Could not validate Leave Restriction Days: " + error.message
+                    });
+                });
+        } catch (error) {
+            console.error("Error in onSave: " + error.message);
         }
     },
 
@@ -449,6 +594,9 @@ LeaveRequest.Form = {
             var formContext = executionContext.getFormContext();
             LeaveRequest.Form.loadLeaveBalance(formContext);
             LeaveRequest.Form.calculateProjectedLeaves(formContext);
+            LeaveRequest.Form.loadLeaveRestrictionDays(formContext).catch(function (error) {
+                console.error("Error loading leave restriction days: " + error.message);
+            });
 
             // Check if leave type has attachment required
             var leaveTypeAttr = formContext.getAttribute(LeaveRequest.Form.config.leaveTypeField);
