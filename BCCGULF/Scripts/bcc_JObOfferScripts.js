@@ -8,7 +8,6 @@ BCCJobOffer.Form = {
         biometricStages: ["Biometric Appointment", "Biometric Done"],
         biometricSubStageStatusValue: 755700000,
         biometricStatusValue: 755700019,
-        renewalStatusField: "bcc_renewalstatus",
         designationField: "bcc_designation",
         noAccessNotificationId: "bccJobOfferNoAccess",
         noAccessMessage: "You do not have access to this record."
@@ -16,94 +15,136 @@ BCCJobOffer.Form = {
 
     onLoad: function (executionContext) {
         var formContext = executionContext.getFormContext();
+        var config = BCCJobOffer.Form.config;
 
-        // Renewal Job Offers: only users configured for the designation (or admins) may see the record.
-        // Skipped on Create (form type 1) — only existing records are checked.
-        var isCreateForm = formContext.ui.getFormType() === 1;
-        if (!isCreateForm && BCCJobOffer.Form.hasRenewalStatus(formContext)) {
-            BCCJobOffer.Form.checkRenewalAccess(formContext).then(function (hasAccess) {
-                if (hasAccess) {
-                    BCCJobOffer.Form.initForm(executionContext);
-                } else {
-                    BCCJobOffer.Form.hideFormForNoAccess(formContext);
+        // Only members of a team whose configuration covers the designation (or an admin configuration)
+        // may see the record. Applies on Create as well as on existing records.
+        BCCJobOffer.Form.getTeamAccess().then(function (access) {
+            var designationId = BCCJobOffer.Form.getDesignationId(formContext);
+            var designationAllowed = designationId !== null && access.designationIds.indexOf(designationId) !== -1;
+            var hasAccess;
+
+            if (formContext.ui.getFormType() === 1) {
+                // Create: Designation is usually still empty, so allow anyone with at least one team
+                // designation and restrict the lookup to those designations
+                hasAccess = access.isAdmin ||
+                    (access.designationIds.length > 0 && (designationId === null || designationAllowed));
+                if (hasAccess && !access.isAdmin) {
+                    BCCJobOffer.Form.filterDesignationLookup(formContext, access.designationIds);
                 }
-            });
-            return;
-        }
+            } else {
+                hasAccess = access.isAdmin || designationAllowed;
+            }
 
-        BCCJobOffer.Form.initForm(executionContext);
+            console.log("BCCJobOffer.Form.onLoad - admin: " + access.isAdmin +
+                ", team designations: " + access.designationIds.length + ", access: " + hasAccess);
+
+            if (hasAccess) {
+                BCCJobOffer.Form.initForm(executionContext);
+            } else {
+                BCCJobOffer.Form.hideFormForNoAccess(formContext);
+            }
+        });
     },
 
-    hasRenewalStatus: function (formContext) {
-        var renewalStatusAttr = formContext.getAttribute(BCCJobOffer.Form.config.renewalStatusField);
-        if (!renewalStatusAttr) {
-            return false;
-        }
-        var value = renewalStatusAttr.getValue();
-        return value !== null && value !== undefined && value !== "";
+    getDesignationId: function (formContext) {
+        var designationAttr = formContext.getAttribute(BCCJobOffer.Form.config.designationField);
+        var designationValue = designationAttr ? designationAttr.getValue() : null;
+        return designationValue && designationValue.length > 0
+            ? designationValue[0].id.replace(/[{}]/g, "").toLowerCase()
+            : null;
     },
 
     /**
-     * Resolves true when the current user has an active BCC Configuration record that is either
-     * linked to the Job Offer's designation, or has the Admin flag set.
+     * Looks at the active BCC Configuration records owned by the current user's teams
+     * (default business unit teams excluded) and resolves
+     * { isAdmin: any of them has the Admin flag, designationIds: designations linked to them }.
+     * Fails closed (no admin, no designations) if the queries fail.
      */
-    checkRenewalAccess: function (formContext) {
-        var config = BCCJobOffer.Form.config;
+    getTeamAccess: function () {
         var userId = Xrm.Utility.getGlobalContext().userSettings.userId.replace(/[{}]/g, "");
 
-        var designationAttr = formContext.getAttribute(config.designationField);
-        var designationValue = designationAttr ? designationAttr.getValue() : null;
-        var designationId = designationValue && designationValue.length > 0
-            ? designationValue[0].id.replace(/[{}]/g, "")
-            : null;
+        // Configuration must be active and owned by a non-default team the user is a member of
+        var userTeamConfigFilter = [
+            "<filter type='and'>",
+            "  <condition attribute='statecode' operator='eq' value='0' />",
+            "</filter>",
+            "<link-entity name='team' from='teamid' to='owningteam'>",
+            "  <filter type='and'>",
+            "    <condition attribute='isdefault' operator='eq' value='0' />",
+            "  </filter>",
+            "  <link-entity name='teammembership' from='teamid' to='teamid' intersect='true'>",
+            "    <filter type='and'>",
+            "      <condition attribute='systemuserid' operator='eq' value='" + userId + "' />",
+            "    </filter>",
+            "  </link-entity>",
+            "</link-entity>"
+        ].join("");
 
-        // User's configuration records linked to the Job Offer designation
-        var designationCheck = Promise.resolve(0);
-        if (designationId) {
-            var fetchXml = [
-                "<fetch version='1.0' distinct='true'>",
-                "  <entity name='bcc_bccconfiguration'>",
-                "    <attribute name='bcc_bccconfigurationid' />",
-                "    <attribute name='bcc_admin' />",
-                "    <order attribute='bcc_name' descending='false' />",
-                "    <filter type='and'>",
-                "      <condition attribute='statecode' operator='eq' value='0' />",
-                "      <condition attribute='bcc_userid' operator='eq' value='" + userId + "' />",
-                "    </filter>",
-                "    <link-entity name='bcc_bccconfiguration_bcc_designation' intersect='true' visible='false'",
-                "        from='bcc_bccconfigurationid' to='bcc_bccconfigurationid'>",
-                "      <link-entity name='bcc_designation' alias='aa' from='bcc_designationid' to='bcc_designationid'>",
-                "        <filter type='and'>",
-                "          <condition attribute='bcc_designationid' operator='eq' value='" + designationId + "' />",
-                "        </filter>",
-                "      </link-entity>",
-                "    </link-entity>",
-                "  </entity>",
-                "</fetch>"
-            ].join("");
-
-            designationCheck = Xrm.WebApi.retrieveMultipleRecords("bcc_bccconfiguration", "?fetchXml=" + encodeURIComponent(fetchXml))
-                .then(function (result) { return result.entities.length; });
-        }
-
-        // User's configuration records with the Admin flag (any designation)
-        var adminCheck = Xrm.WebApi.retrieveMultipleRecords("bcc_bccconfiguration",
-            "?$select=bcc_admin&$filter=statecode eq 0 and _bcc_userid_value eq " + userId)
-            .then(function (result) {
-                return result.entities.some(function (record) {
-                    return BCCJobOffer.Form.isYes(record, "bcc_admin");
-                });
+        // Team configuration records with the Admin flag (admin configurations have no designations)
+        var adminCheck = Xrm.WebApi.retrieveMultipleRecords("bcc_bccconfiguration", "?fetchXml=" + encodeURIComponent([
+            "<fetch version='1.0' distinct='true'>",
+            "  <entity name='bcc_bccconfiguration'>",
+            "    <attribute name='bcc_bccconfigurationid' />",
+            "    <attribute name='bcc_admin' />",
+            userTeamConfigFilter,
+            "  </entity>",
+            "</fetch>"
+        ].join(""))).then(function (result) {
+            return result.entities.some(function (record) {
+                return BCCJobOffer.Form.isYes(record, "bcc_admin");
             });
+        });
 
-        return Promise.all([designationCheck, adminCheck]).then(function (results) {
-            var designationCount = results[0];
-            var isAdmin = results[1];
-            console.log("BCCJobOffer.Form.checkRenewalAccess - designation matches: " + designationCount + ", admin: " + isAdmin);
-            return designationCount > 0 || isAdmin;
+        // Designations linked to the team configuration records
+        var designationQuery = Xrm.WebApi.retrieveMultipleRecords("bcc_designation", "?fetchXml=" + encodeURIComponent([
+            "<fetch version='1.0' distinct='true'>",
+            "  <entity name='bcc_designation'>",
+            "    <attribute name='bcc_designationid' />",
+            "    <link-entity name='bcc_bccconfiguration_bcc_designation' intersect='true' visible='false'",
+            "        from='bcc_designationid' to='bcc_designationid'>",
+            "      <link-entity name='bcc_bccconfiguration' from='bcc_bccconfigurationid' to='bcc_bccconfigurationid'>",
+            userTeamConfigFilter,
+            "      </link-entity>",
+            "    </link-entity>",
+            "  </entity>",
+            "</fetch>"
+        ].join(""))).then(function (result) {
+            return result.entities.map(function (record) {
+                return record.bcc_designationid.replace(/[{}]/g, "").toLowerCase();
+            });
+        });
+
+        return Promise.all([adminCheck, designationQuery]).then(function (results) {
+            return { isAdmin: results[0], designationIds: results[1] };
         }).catch(function (error) {
             // Fail closed: if access can't be verified, don't show the record
-            console.error("BCCJobOffer.Form.checkRenewalAccess - " + error.message);
-            return false;
+            console.error("BCCJobOffer.Form.getTeamAccess - " + error.message);
+            return { isAdmin: false, designationIds: [] };
+        });
+    },
+
+    // Limits the Designation lookup to the designations of the user's team configurations
+    filterDesignationLookup: function (formContext, designationIds) {
+        var designationAttr = formContext.getAttribute(BCCJobOffer.Form.config.designationField);
+        if (!designationAttr) {
+            console.error("BCCJobOffer.Form.filterDesignationLookup - field not found: " +
+                BCCJobOffer.Form.config.designationField);
+            return;
+        }
+
+        var filterXml = "<filter type='and'><condition attribute='bcc_designationid' operator='in'>" +
+            designationIds.map(function (id) { return "<value>" + id + "</value>"; }).join("") +
+            "</condition></filter>";
+
+        designationAttr.controls.forEach(function (control) {
+            if (control.__bccDesignationFilterAdded) {
+                return;
+            }
+            control.addPreSearch(function () {
+                control.addCustomFilter(filterXml, "bcc_designation");
+            });
+            control.__bccDesignationFilterAdded = true;
         });
     },
 
